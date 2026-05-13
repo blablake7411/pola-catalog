@@ -1,0 +1,6 @@
+{
+  "name": "pola-catalog",
+  "scripts": {
+    "start": "npx serve . -l $PORT"
+  }
+}
