@@ -58,21 +58,8 @@
       <div class="cart-empty">尚未加入任何商品</div>
     </div>
     <div class="cart-footer" id="cartFooter" style="display:none">
-      <div class="cart-totals">
-        <div class="cart-total-row">
-          <span>原價小計</span>
-          <span id="cartSubtotal"></span>
-        </div>
-        <div class="cart-total-row" id="cartDiscountRow" style="display:none">
-          <span>折扣</span>
-          <span id="cartDiscount" style="color:#e53e3e"></span>
-        </div>
-        <div class="cart-total-row final">
-          <span>合計</span>
-          <span id="cartTotal"></span>
-        </div>
-      </div>
-      <button class="cart-checkout-btn" onclick="openCheckout()">填寫訂購資料</button>
+      <p style="font-size:11px;color:#aaa;text-align:center;margin:0 0 10px">金額由業務確認後告知</p>
+      <button class="cart-checkout-btn" onclick="openCheckout()">填寫詢單資料</button>
     </div>
   </div>
 
@@ -81,7 +68,7 @@
     <div class="checkout-panel" id="checkoutPanel">
       <div id="checkoutForm">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <h2 style="margin:0">填寫訂購資料</h2>
+          <h2 style="margin:0">填寫詢單資料</h2>
           <button onclick="closeCheckout()" style="background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1">&times;</button>
         </div>
         <div class="checkout-field">
@@ -89,35 +76,49 @@
           <input id="co-name" type="text" placeholder="請輸入您的姓名">
         </div>
         <div class="checkout-field">
-          <label>電話</label>
-          <input id="co-phone" type="tel" placeholder="手機號碼">
+          <label>電話 *</label>
+          <input id="co-phone" type="tel" placeholder="手機號碼" onblur="lookupPhone(this.value)">
+          <div id="co-agent-display" style="display:none;margin-top:6px;padding:8px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#19884a"></div>
         </div>
         <div class="checkout-field">
           <label>寄送地址</label>
           <input id="co-address" type="text" placeholder="收件地址（若面交可不填）">
         </div>
         <div class="checkout-field">
-          <label>付款方式</label>
-          <select id="co-payment">
-            <option value="匯款">匯款</option>
-            <option value="現金">現金</option>
-            <option value="Line Pay">Line Pay</option>
-          </select>
-        </div>
-        <div class="checkout-field">
           <label>備註</label>
           <textarea id="co-notes" rows="2" placeholder="特殊需求或備注"></textarea>
         </div>
-        <button class="checkout-submit" id="checkoutSubmitBtn" onclick="submitOrder()">送出訂單</button>
+        <button class="checkout-submit" id="checkoutSubmitBtn" onclick="submitOrder()">送出詢單</button>
       </div>
       <div id="checkoutSuccess" class="order-success" style="display:none">
         <div class="checkmark">✓</div>
-        <h3>訂單送出成功！</h3>
-        <p id="successOrderNum" style="font-weight:700;font-size:15px;margin:8px 0"></p>
-        <p>業務會盡快與您確認訂單</p>
+        <h3>詢單已送出！</h3>
+        <p id="successAgentMsg" style="font-size:14px;color:#555;margin:10px 0 4px"></p>
+        <p id="successOrderNum" style="font-weight:700;font-size:13px;color:#aaa"></p>
         <button onclick="closeCheckout()" style="margin-top:20px;background:#111;color:#fff;border:none;border-radius:12px;padding:12px 32px;font-size:14px;font-weight:600;cursor:pointer">
           繼續瀏覽
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Mode Banner -->
+  <div id="agentModeBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:200;background:#111;color:#fff;text-align:center;padding:8px 16px;font-size:13px">
+    業務模式：<strong id="agentModeName"></strong>
+    <span style="margin-left:16px;color:#aaa;cursor:pointer;text-decoration:underline" onclick="logoutAgentMode()">退出</span>
+  </div>
+
+  <!-- Agent Login Modal -->
+  <div id="agentLoginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:none;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;width:320px;max-width:90vw">
+      <h3 style="margin:0 0 16px;font-size:16px">業務下單模式</h3>
+      <p style="font-size:13px;color:#666;margin:0 0 16px">輸入您的業務代碼，幫客人送出詢單時訂單會自動歸屬到您。</p>
+      <input id="agentLoginCode" type="text" placeholder="業務代碼（例如 A002）"
+        style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px 12px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit">
+      <div id="agentLoginError" style="color:#e53e3e;font-size:12px;min-height:18px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeAgentLogin()" style="flex:1;border:1px solid #ddd;background:#fff;border-radius:10px;padding:10px;font-size:14px;cursor:pointer">取消</button>
+        <button onclick="submitAgentLogin()" style="flex:2;background:#111;color:#fff;border:none;border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer">登入</button>
       </div>
     </div>
   </div>
@@ -136,6 +137,8 @@
       <a href="admin.html" style="color:#999;text-decoration:none">管理後台</a>
       &nbsp;·&nbsp;
       <a href="agent.html" style="color:#999;text-decoration:none">業務後台</a>
+      &nbsp;·&nbsp;
+      <span id="agentModeLabel" style="color:#999;cursor:pointer;text-decoration:underline" onclick="toggleAgentMode()">業務下單模式</span>
       &nbsp;·&nbsp;
       <a href="API.md" style="color:#999;text-decoration:none">API 規格</a>
     </p>

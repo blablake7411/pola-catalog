@@ -2,8 +2,9 @@ let activeCategory = '臉部保養';
 let activeSeries = '全部';
 
 var cart = JSON.parse(localStorage.getItem('pola_cart') || '[]');
-var agentInfo = null;
-const SHOP_API = 'http://localhost:8001'; // TODO: replace with Railway URL after deploy
+var agentInfo = null;       // set via URL ?agent= (legacy, kept for agent.html)
+var agentModeInfo = null;   // set via agent login session
+const SHOP_API = 'https://pola-shop-production.up.railway.app';
 function renderColorSwatches(variants) {
   const thumbs = variants.map(v =>
     `<img src="${v.img}" alt="${v.label}" class="color-swatch-thumb"
@@ -220,11 +221,6 @@ function getCartSubtotal() {
   return cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
 }
 
-function getDiscountAmount() {
-  if (!agentInfo || agentInfo.discount_rate >= 1) return 0;
-  return Math.round(getCartSubtotal() * (1 - agentInfo.discount_rate));
-}
-
 function updateCartFab() {
   const total = cart.reduce((s, i) => s + i.qty, 0);
   const countEl = document.getElementById('cartCount');
@@ -252,7 +248,7 @@ function renderCartItems() {
       <div class="cart-item-info">
         <div class="cart-item-name">${item.name}</div>
         <div class="cart-item-meta">${[item.series, item.variantLabel, item.code].filter(Boolean).join(' · ')}</div>
-        <div class="cart-item-price">NTD ${item.unitPrice.toLocaleString()}</div>
+        <div class="cart-item-price" style="color:#aaa;font-size:12px">參考原價 NTD ${item.unitPrice.toLocaleString()}</div>
       </div>
       <div class="cart-qty">
         <button class="qty-btn" onclick="changeQty(${idx}, -1)">−</button>
@@ -261,22 +257,6 @@ function renderCartItems() {
       </div>
     </div>
   `).join('');
-
-  const subtotal = getCartSubtotal();
-  const discount = getDiscountAmount();
-  const total = subtotal - discount;
-
-  document.getElementById('cartSubtotal').textContent = `NTD ${subtotal.toLocaleString()}`;
-
-  const discountRow = document.getElementById('cartDiscountRow');
-  if (discount > 0) {
-    document.getElementById('cartDiscount').textContent = `-NTD ${discount.toLocaleString()}`;
-    discountRow.style.display = '';
-  } else {
-    discountRow.style.display = 'none';
-  }
-
-  document.getElementById('cartTotal').textContent = `NTD ${total.toLocaleString()}`;
 }
 
 function changeQty(idx, delta) {
@@ -353,21 +333,45 @@ function closeCheckout() {
   document.getElementById('checkoutOverlay').style.display = 'none';
 }
 
+async function lookupPhone(phone) {
+  const display = document.getElementById('co-agent-display');
+  if (!phone || phone.length < 8) { display.style.display = 'none'; return; }
+  if (agentModeInfo) {
+    display.style.display = '';
+    display.textContent = `業務：${agentModeInfo.name}（業務下單模式）`;
+    return;
+  }
+  try {
+    const res = await fetch(`${SHOP_API}/api/customers/lookup?phone=${encodeURIComponent(phone)}`);
+    const data = await res.json();
+    if (data.found) {
+      display.style.display = '';
+      display.textContent = `業務：${data.agent_name}`;
+    } else {
+      display.style.display = 'none';
+    }
+  } catch (e) {
+    display.style.display = 'none';
+  }
+}
+
 async function submitOrder() {
   const name = document.getElementById('co-name').value.trim();
+  const phone = document.getElementById('co-phone').value.trim();
   if (!name) { alert('請填寫姓名'); return; }
+  if (!phone) { alert('請填寫電話'); return; }
 
   const btn = document.getElementById('checkoutSubmitBtn');
   btn.disabled = true;
   btn.textContent = '送出中...';
 
+  const agentCode = agentModeInfo ? agentModeInfo.code : (agentInfo ? agentInfo.code : null);
+
   const payload = {
-    agent_code: agentInfo ? agentInfo.code : null,
+    agent_code: agentCode,
     customer_name: name,
-    customer_phone: document.getElementById('co-phone').value.trim() || null,
+    customer_phone: phone,
     customer_address: document.getElementById('co-address').value.trim() || null,
-    payment_method: document.getElementById('co-payment').value,
-    shipping_fee: 0,
     notes: document.getElementById('co-notes').value.trim() || null,
     items: cart.map(i => ({
       product_code: i.code || null,
@@ -392,38 +396,73 @@ async function submitOrder() {
     saveCart();
     updateCartFab();
 
-    document.getElementById('successOrderNum').textContent = order.order_number;
+    const agentDisplay = document.getElementById('co-agent-display');
+    const agentName = agentModeInfo?.name
+      || (agentDisplay.style.display !== 'none' ? agentDisplay.textContent.replace('業務：','').split('（')[0] : null);
+
+    document.getElementById('successAgentMsg').textContent = agentName
+      ? `業務 ${agentName} 會盡快與您確認金額。`
+      : '我們會安排業務盡快與您確認金額。';
+    document.getElementById('successOrderNum').textContent = `詢單編號：${order.order_number}`;
     document.getElementById('checkoutForm').style.display = 'none';
     document.getElementById('checkoutSuccess').style.display = '';
   } catch (e) {
     alert('送出失敗，請稍後再試');
   } finally {
     btn.disabled = false;
-    btn.textContent = '送出訂單';
+    btn.textContent = '送出詢單';
   }
 }
 
-// Load agent info from URL ?agent=xxx
-async function initAgent() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('agent');
-  if (!code) return;
+// ── Agent Mode ────────────────────────────────────────────────
 
+function toggleAgentMode() {
+  if (agentModeInfo) { logoutAgentMode(); return; }
+  document.getElementById('agentLoginOverlay').style.display = 'flex';
+  document.getElementById('agentLoginCode').value = '';
+  document.getElementById('agentLoginError').textContent = '';
+}
+
+function closeAgentLogin() {
+  document.getElementById('agentLoginOverlay').style.display = 'none';
+}
+
+async function submitAgentLogin() {
+  const code = document.getElementById('agentLoginCode').value.trim().toUpperCase();
+  const err = document.getElementById('agentLoginError');
+  if (!code) { err.textContent = '請輸入業務代碼'; return; }
   try {
     const res = await fetch(`${SHOP_API}/api/agents/${code}`);
-    if (!res.ok) return;
-    agentInfo = await res.json();
-
-    const bar = document.getElementById('cartAgentBar');
-    if (bar) {
-      const discountLabel = agentInfo.discount_rate < 1
-        ? `${Math.round(agentInfo.discount_rate * 10)}折優惠`
-        : '原價';
-      bar.innerHTML = `業務：<span>${agentInfo.name}</span>　折扣：<span>${discountLabel}</span>`;
-      bar.style.display = '';
-    }
+    if (!res.ok) { err.textContent = '找不到此業務代碼，請確認後重試'; return; }
+    const agent = await res.json();
+    agentModeInfo = { code: agent.code, name: agent.name };
+    sessionStorage.setItem('agentMode', JSON.stringify(agentModeInfo));
+    document.getElementById('agentModeName').textContent = agent.name;
+    document.getElementById('agentModeBanner').style.display = '';
+    document.getElementById('agentModeLabel').textContent = `業務模式：${agent.name}`;
+    closeAgentLogin();
   } catch (e) {
-    // silently ignore
+    err.textContent = '連線失敗，請稍後再試';
+  }
+}
+
+function logoutAgentMode() {
+  agentModeInfo = null;
+  sessionStorage.removeItem('agentMode');
+  document.getElementById('agentModeBanner').style.display = 'none';
+  document.getElementById('agentModeLabel').textContent = '業務下單模式';
+}
+
+async function initAgent() {
+  // Restore agent mode from session
+  const saved = sessionStorage.getItem('agentMode');
+  if (saved) {
+    try {
+      agentModeInfo = JSON.parse(saved);
+      document.getElementById('agentModeName').textContent = agentModeInfo.name;
+      document.getElementById('agentModeBanner').style.display = '';
+      document.getElementById('agentModeLabel').textContent = `業務模式：${agentModeInfo.name}`;
+    } catch (e) { sessionStorage.removeItem('agentMode'); }
   }
 }
 

@@ -484,6 +484,7 @@
   <nav class="sidenav">
     <button class="active" data-view="orders">訂單管理 <span class="badge" id="pendingBadge"></span></button>
     <button data-view="agents">業務管理</button>
+    <button data-view="customers">客人管理</button>
     <button data-view="report">月結報表</button>
     <button data-view="products">商品管理</button>
   </nav>
@@ -637,6 +638,26 @@
       </div>
     </section>
 
+    <!-- ─── Customers View ──────────────────────────── -->
+    <section id="view-customers" class="hidden">
+      <h1 class="page-title">客人管理</h1>
+      <p class="page-sub">登記客人電話與所屬業務，客人下單填電話時系統自動帶入業務。</p>
+      <div style="margin-bottom:16px">
+        <button class="btn" onclick="openNewCustomerModal()">+ 新增客人</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>姓名</th>
+            <th>電話</th>
+            <th>所屬業務</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="customersTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- ─── Products View ───────────────────────────── -->
     <section id="view-products" class="hidden">
       <h1 class="page-title">商品管理</h1>
@@ -742,7 +763,29 @@
   </div>
 </div>
 
-<script src="mock-data.js"></script>
+<!-- New Customer Modal -->
+<div class="modal-overlay" id="newCustomerModal">
+  <div class="modal">
+    <h2>新增客人</h2>
+    <div class="field">
+      <label>姓名</label>
+      <input type="text" id="newCustomerName" placeholder="陳太太">
+    </div>
+    <div class="field">
+      <label>電話</label>
+      <input type="tel" id="newCustomerPhone" placeholder="0912-345-678">
+    </div>
+    <div class="field">
+      <label>所屬業務</label>
+      <select id="newCustomerAgentSel"></select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn ghost" style="flex:1" onclick="closeNewCustomerModal()">取消</button>
+      <button class="btn" style="flex:1" onclick="saveNewCustomer()">新增</button>
+    </div>
+  </div>
+</div>
+
 <script src="admin.js"></script>
 
 <!-- Editorial font for "editorial" type voice -->
