@@ -6,6 +6,83 @@
   <title>POLA 商品目錄</title>
   <meta name="description" content="POLA 台灣正品商品目錄，點擊查看完整商品資訊">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Portal FAB ── */
+    .portal-fab {
+      position: fixed; bottom: 24px; right: 86px; width: 52px; height: 52px;
+      border-radius: 50%; background: #fff; border: 1px solid #ddd;
+      box-shadow: 0 2px 12px rgba(0,0,0,.15); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+      transition: box-shadow .2s, transform .15s;
+    }
+    .portal-fab:hover { box-shadow: 0 4px 20px rgba(0,0,0,.22); transform: scale(1.05); }
+    .portal-fab svg { width: 22px; height: 22px; color: #333; }
+    /* ── Portal Modal ── */
+    .portal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 600;
+      display: none; align-items: flex-end; justify-content: flex-end;
+    }
+    .portal-overlay.open { display: flex; }
+    .portal-card {
+      width: 360px; max-width: 100vw; background: #fff;
+      border-radius: 20px 20px 0 0; max-height: 88vh; overflow-y: auto;
+      margin: 0 0 0 auto;
+      box-shadow: 0 -4px 30px rgba(0,0,0,.15);
+    }
+    @media (min-width: 500px) {
+      .portal-overlay { align-items: center; justify-content: flex-end; padding: 24px; }
+      .portal-card { border-radius: 20px; margin: 0; }
+    }
+    .portal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 0; font-size: 15px; font-weight: 700;
+    }
+    .portal-close {
+      background: none; border: none; font-size: 22px; color: #aaa; cursor: pointer; line-height: 1;
+    }
+    .portal-tabs {
+      display: flex; border-bottom: 1px solid #eee; margin: 12px 0 0;
+    }
+    .portal-tab-btn {
+      flex: 1; background: none; border: none; padding: 12px; font-size: 13px;
+      font-weight: 600; color: #aaa; cursor: pointer; border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s; font-family: inherit;
+    }
+    .portal-tab-btn.active { color: #111; border-bottom-color: #111; }
+    .portal-body { padding: 20px; }
+    .portal-input {
+      width: 100%; border: 1px solid #ddd; border-radius: 10px; padding: 11px 14px;
+      font-size: 14px; box-sizing: border-box; font-family: inherit; outline: none;
+      transition: border-color .15s;
+    }
+    .portal-input:focus { border-color: #111; }
+    .portal-btn {
+      width: 100%; background: #111; color: #fff; border: none; border-radius: 12px;
+      padding: 13px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 10px;
+      font-family: inherit; transition: opacity .15s;
+    }
+    .portal-btn:hover { opacity: .85; }
+    .portal-btn.ghost {
+      background: #fff; color: #111; border: 1px solid #ddd; margin-top: 8px;
+    }
+    .portal-err { color: #e53e3e; font-size: 12px; min-height: 18px; margin: 6px 0; }
+    .portal-stat {
+      background: #f8f8f8; border-radius: 12px; padding: 14px 16px; margin: 12px 0;
+    }
+    .portal-stat .label { font-size: 11px; color: #888; letter-spacing: 1px; text-transform: uppercase; }
+    .portal-stat .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .portal-order-item {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px;
+    }
+    .portal-order-item:last-child { border: none; }
+    .portal-section-title { font-size: 11px; color: #888; letter-spacing: 1.5px; text-transform: uppercase; margin: 16px 0 8px; }
+    /* Agent mode banner */
+    #agentModeBanner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: #111; color: #fff; text-align: center; padding: 8px 16px; font-size: 13px;
+    }
+  </style>
 </head>
 <body>
 
@@ -81,8 +158,13 @@
           <div id="co-agent-display" style="display:none;margin-top:6px;padding:8px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#19884a"></div>
         </div>
         <div class="checkout-field">
-          <label>寄送地址</label>
-          <input id="co-address" type="text" placeholder="收件地址（若面交可不填）">
+          <label>寄送地址 *</label>
+          <input id="co-address" type="text" placeholder="收件地址">
+        </div>
+        <div class="checkout-field">
+          <label>業務代碼（選填）</label>
+          <input id="co-agent-code" type="text" placeholder="由業務提供，沒有代碼也可直接下單" style="text-transform:uppercase" onblur="lookupAgentCode()">
+          <div id="co-agent-code-display" style="display:none;margin-top:6px;padding:8px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#19884a"></div>
         </div>
         <div class="checkout-field">
           <label>備註</label>
@@ -95,7 +177,11 @@
         <h3>詢單已送出！</h3>
         <p id="successAgentMsg" style="font-size:14px;color:#555;margin:10px 0 4px"></p>
         <p id="successOrderNum" style="font-weight:700;font-size:13px;color:#aaa"></p>
-        <button onclick="closeCheckout()" style="margin-top:20px;background:#111;color:#fff;border:none;border-radius:12px;padding:12px 32px;font-size:14px;font-weight:600;cursor:pointer">
+        <div style="margin:20px auto;text-align:center;max-width:180px">
+          <img src="assets/line-qr.png" alt="LINE QR Code" style="width:140px;height:140px;border-radius:10px;border:1px solid #eee">
+          <p style="font-size:12px;color:#888;margin-top:8px;line-height:1.5">掃描加入官方 LINE<br>業務會與您確認金額及出貨</p>
+        </div>
+        <button onclick="closeCheckout()" style="background:#111;color:#fff;border:none;border-radius:12px;padding:12px 32px;font-size:14px;font-weight:600;cursor:pointer">
           繼續瀏覽
         </button>
       </div>
@@ -103,25 +189,111 @@
   </div>
 
   <!-- Agent Mode Banner -->
-  <div id="agentModeBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:200;background:#111;color:#fff;text-align:center;padding:8px 16px;font-size:13px">
+  <div id="agentModeBanner" style="display:none">
     業務模式：<strong id="agentModeName"></strong>
-    <span style="margin-left:16px;color:#aaa;cursor:pointer;text-decoration:underline" onclick="logoutAgentMode()">退出</span>
+    <span style="margin-left:14px;color:#aaa;cursor:pointer;font-size:12px;text-decoration:underline" onclick="openPortal('agent')">查看業績</span>
+    <span style="margin-left:12px;color:#aaa;cursor:pointer;font-size:12px;text-decoration:underline" onclick="logoutAgentMode()">退出</span>
   </div>
 
-  <!-- Agent Login Modal -->
-  <div id="agentLoginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:none;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:16px;padding:28px 24px;width:320px;max-width:90vw">
-      <h3 style="margin:0 0 16px;font-size:16px">業務下單模式</h3>
-      <p style="font-size:13px;color:#666;margin:0 0 16px">輸入您的業務代碼，幫客人送出詢單時訂單會自動歸屬到您。</p>
-      <input id="agentLoginCode" type="text" placeholder="業務代碼（例如 A002）"
-        style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px 12px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit">
-      <div id="agentLoginError" style="color:#e53e3e;font-size:12px;min-height:18px;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px">
-        <button onclick="closeAgentLogin()" style="flex:1;border:1px solid #ddd;background:#fff;border-radius:10px;padding:10px;font-size:14px;cursor:pointer">取消</button>
-        <button onclick="submitAgentLogin()" style="flex:2;background:#111;color:#fff;border:none;border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer">登入</button>
+  <!-- Portal Modal -->
+  <div class="portal-overlay" id="portalOverlay" onclick="closePortalIfBg(event)">
+    <div class="portal-card" id="portalCard">
+      <div class="portal-header">
+        <span>會員中心</span>
+        <button class="portal-close" onclick="closePortal()">×</button>
+      </div>
+      <div class="portal-tabs">
+        <button class="portal-tab-btn active" id="portalTabCustomer" onclick="switchPortalTab('customer')">查詢訂單</button>
+        <button class="portal-tab-btn" id="portalTabAgent" onclick="switchPortalTab('agent')">業務專區</button>
+      </div>
+
+      <!-- 客人查詢 tab -->
+      <div id="portalCustomerTab" class="portal-body">
+        <div id="portalCustomerLogin">
+          <p style="font-size:13px;color:#666;margin:0 0 14px;line-height:1.6">輸入您的電話號碼，查看您的歷史訂單和累積消費記錄。</p>
+          <input class="portal-input" id="customerPhone" type="tel" placeholder="您的手機號碼">
+          <div class="portal-err" id="customerErr"></div>
+          <button class="portal-btn" onclick="lookupCustomerProfile()">查詢</button>
+        </div>
+        <div id="portalCustomerProfile" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <strong id="profileName" style="font-size:15px"></strong>
+            <span style="font-size:12px;color:#aaa;cursor:pointer" onclick="resetCustomerProfile()">切換帳號</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="portal-stat">
+              <div class="label">本月消費</div>
+              <div class="value" id="profileMonthly" style="font-size:17px">—</div>
+            </div>
+            <div class="portal-stat">
+              <div class="label">累積消費</div>
+              <div class="value" id="profileTotal" style="font-size:17px">—</div>
+            </div>
+          </div>
+          <div class="portal-section-title">近期訂單</div>
+          <div id="profileOrders"></div>
+        </div>
+      </div>
+
+      <!-- 業務專區 tab -->
+      <div id="portalAgentTab" class="portal-body" style="display:none">
+        <div id="portalAgentLogin">
+          <div style="background:#f8f8f8;border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px;color:#555;line-height:1.6">
+            此區域為 POLA 業務專屬登入區。<br>
+            如您是一般客人，歡迎掃描加入官方 LINE 由業務為您服務。
+            <div style="text-align:center;margin-top:12px">
+              <img src="assets/line-qr.png" alt="LINE" style="width:90px;height:90px;border-radius:8px">
+            </div>
+          </div>
+          <input class="portal-input" id="agentLoginPhone" type="tel" placeholder="業務電話號碼">
+          <input class="portal-input" id="agentLoginPwd" type="password" placeholder="密碼" style="margin-top:10px">
+          <div class="portal-err" id="agentLoginErr"></div>
+          <button class="portal-btn" onclick="submitAgentLogin()">登入業務帳號</button>
+        </div>
+        <div id="portalAgentDashboard" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div>
+              <strong id="dashName" style="font-size:15px"></strong>
+              <span id="dashTierBadge" style="margin-left:8px;font-size:11px;background:#111;color:#fff;padding:2px 8px;border-radius:10px"></span>
+            </div>
+            <span style="font-size:12px;color:#aaa;cursor:pointer" onclick="logoutPortalAgent()">退出</span>
+          </div>
+          <div style="font-size:12px;color:#888;margin-bottom:14px" id="dashDiscount"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="portal-stat">
+              <div class="label">本月業績</div>
+              <div class="value" id="dashMonthly" style="font-size:17px">—</div>
+            </div>
+            <div class="portal-stat">
+              <div class="label">歷年累計</div>
+              <div class="value" id="dashTotal" style="font-size:17px">—</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+            <div class="portal-stat">
+              <div class="label">本月訂單</div>
+              <div class="value" id="dashMonthlyOrders" style="font-size:17px">—</div>
+            </div>
+            <div class="portal-stat">
+              <div class="label">我的客人</div>
+              <div class="value" id="dashCustomers" style="font-size:17px">—</div>
+            </div>
+          </div>
+          <div class="portal-section-title">最近訂單</div>
+          <div id="dashOrders"></div>
+          <button class="portal-btn ghost" style="margin-top:14px" onclick="window.open('agent.html','_blank')">完整業務後台 →</button>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- Portal FAB -->
+  <button class="portal-fab" id="portalFab" onclick="openPortal('customer')" aria-label="會員中心">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+  </button>
 
   <a href="https://lin.ee/qxRpzSj" target="_blank" rel="noopener" class="line-fab" aria-label="LINE 聯絡業務">
     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -138,13 +310,11 @@
       &nbsp;·&nbsp;
       <a href="agent.html" style="color:#999;text-decoration:none">業務後台</a>
       &nbsp;·&nbsp;
-      <span id="agentModeLabel" style="color:#999;cursor:pointer;text-decoration:underline" onclick="toggleAgentMode()">業務下單模式</span>
-      &nbsp;·&nbsp;
       <a href="API.md" style="color:#999;text-decoration:none">API 規格</a>
     </p>
   </footer>
 
-  <script src="products.js"></script>
-  <script src="app.js"></script>
+  <script src="products.js?v=2"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

@@ -226,6 +226,9 @@ function openDrawer(orderNumber) {
   } else {
     actions = `<button class="btn ghost" style="flex:1" onclick="updateStatus('待確認')">復原訂單</button>`;
   }
+  actions += `
+    <button class="btn ghost" style="flex:1;margin-left:8px" onclick="openEditCustomerModal()">編輯資料</button>
+    <button class="btn ghost" style="flex:1;margin-left:8px" onclick="printShippingSlip()">出貨單</button>`;
   footer.innerHTML = actions;
 
   document.getElementById('drawer').classList.add('open');
@@ -553,6 +556,130 @@ function exportCSV() {
   a.download = `POLA-訂單-${currentMonth}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Print Shipping Slip ───────────────────────────────────────
+
+function printShippingSlip() {
+  const o = ORDERS.find(x => x.order_number === selectedOrderId);
+  if (!o) return;
+  const agent = AGENTS.find(a => a.code === o.agent_code);
+  const itemsRows = o.items.map(i => `
+    <tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee">${i.product_code || ''}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee">${i.product_name}${i.variant_label ? ' · ' + i.variant_label : ''}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${i.quantity}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">NTD ${i.unit_price.toLocaleString()}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">NTD ${(i.unit_price * i.quantity).toLocaleString()}</td>
+    </tr>`).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html lang="zh-TW"><head>
+  <meta charset="UTF-8">
+  <title>POLA 出貨單 ${o.order_number}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Arial, 'Noto Sans TC', sans-serif; font-size: 13px; color: #111; padding: 32px; max-width: 720px; margin: 0 auto; }
+    .brand { font-size: 22px; font-weight: 900; letter-spacing: 4px; margin-bottom: 4px; }
+    .sub { font-size: 11px; color: #888; letter-spacing: 2px; margin-bottom: 24px; }
+    h2 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; letter-spacing: 1px; text-transform: uppercase; color: #888; }
+    .info-grid { display: grid; grid-template-columns: 100px 1fr; gap: 6px 12px; font-size: 13px; }
+    .info-grid dt { color: #888; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+    thead th { text-align: left; padding: 6px 8px; font-size: 11px; color: #888; border-bottom: 2px solid #111; letter-spacing: 1px; text-transform: uppercase; }
+    thead th:last-child, thead th:nth-child(3), thead th:nth-child(4) { text-align: right; }
+    .total-row { font-weight: 700; font-size: 14px; padding: 10px 8px 0; display: flex; justify-content: space-between; border-top: 2px solid #111; margin-top: 8px; }
+    .notice { background: #f8f8f8; border-left: 3px solid #111; padding: 12px 16px; margin-top: 24px; font-size: 12px; line-height: 1.8; color: #555; }
+    .footer { margin-top: 32px; font-size: 11px; color: #bbb; text-align: center; }
+    @media print {
+      body { padding: 16px; }
+      button { display: none; }
+    }
+  </style>
+  </head><body>
+  <div class="brand">POLA</div>
+  <div class="sub">出貨單 SHIPPING SLIP</div>
+
+  <h2>訂單資訊</h2>
+  <dl class="info-grid">
+    <dt>訂單編號</dt><dd>${o.order_number}</dd>
+    <dt>建立時間</dt><dd>${createdAtFmt(o.created_at)}</dd>
+    <dt>狀態</dt><dd>${o.status}</dd>
+    ${agent ? `<dt>業務</dt><dd>${agent.name} (${agent.code})</dd>` : ''}
+  </dl>
+
+  <h2>收件人</h2>
+  <dl class="info-grid">
+    <dt>姓名</dt><dd>${o.customer_name}</dd>
+    <dt>電話</dt><dd>${o.customer_phone || '—'}</dd>
+    <dt>地址</dt><dd>${o.customer_address || '—'}</dd>
+    ${o.notes ? `<dt>備註</dt><dd>${o.notes}</dd>` : ''}
+  </dl>
+
+  <h2>商品明細</h2>
+  <table>
+    <thead><tr>
+      <th>商品碼</th><th>商品名稱</th><th style="text-align:right">數量</th><th style="text-align:right">單價</th><th style="text-align:right">小計</th>
+    </tr></thead>
+    <tbody>${itemsRows}</tbody>
+  </table>
+  <div class="total-row">
+    <span>原價總額</span>
+    <span>NTD ${o.retail_total.toLocaleString()}</span>
+  </div>
+
+  <div class="notice">
+    <strong>出貨說明</strong><br>
+    出貨時間為週一至週五，中午 12:00 前確認付款可當天出貨；12:00 後確認則次一工作日出貨。<br>
+    例假日及國定假日不出貨，請稍待次一工作日。
+  </div>
+
+  <div class="footer">© 2026 POLA 台灣 · 所有商品均為官方正品</div>
+
+  <div style="margin-top:24px;text-align:center">
+    <button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">列印 / 儲存 PDF</button>
+  </div>
+  </body></html>`);
+  win.document.close();
+}
+
+// ── Edit Customer Modal ───────────────────────────────────────
+
+function openEditCustomerModal() {
+  const o = ORDERS.find(x => x.order_number === selectedOrderId);
+  if (!o) return;
+  document.getElementById('editCustOrderNum').value = o.order_number;
+  document.getElementById('editCustName').value = o.customer_name || '';
+  document.getElementById('editCustPhone').value = o.customer_phone || '';
+  document.getElementById('editCustAddress').value = o.customer_address || '';
+  document.getElementById('editCustNotes').value = o.notes || '';
+  document.getElementById('editCustomerModal').classList.add('open');
+}
+
+function closeEditCustomerModal() {
+  document.getElementById('editCustomerModal').classList.remove('open');
+}
+
+async function saveEditCustomer() {
+  const orderNum = document.getElementById('editCustOrderNum').value;
+  const body = {
+    customer_name: document.getElementById('editCustName').value.trim(),
+    customer_phone: document.getElementById('editCustPhone').value.trim(),
+    customer_address: document.getElementById('editCustAddress').value.trim(),
+    notes: document.getElementById('editCustNotes').value.trim(),
+  };
+  try {
+    const updated = await apiFetch(`/api/admin/orders/${orderNum}/customer`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    const idx = ORDERS.findIndex(o => o.order_number === orderNum);
+    if (idx !== -1) ORDERS[idx] = updated;
+    closeEditCustomerModal();
+    openDrawer(orderNum);
+  } catch (e) {
+    alert('儲存失敗：' + e.message);
+  }
 }
 
 init();

@@ -786,6 +786,34 @@
   </div>
 </div>
 
+<!-- Edit Customer Modal -->
+<div class="modal-overlay" id="editCustomerModal">
+  <div class="modal">
+    <h2>編輯收件人資料</h2>
+    <input type="hidden" id="editCustOrderNum">
+    <div class="field">
+      <label>姓名</label>
+      <input type="text" id="editCustName">
+    </div>
+    <div class="field">
+      <label>電話</label>
+      <input type="tel" id="editCustPhone">
+    </div>
+    <div class="field">
+      <label>地址</label>
+      <input type="text" id="editCustAddress">
+    </div>
+    <div class="field">
+      <label>備註</label>
+      <textarea id="editCustNotes" rows="2"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn ghost" style="flex:1" onclick="closeEditCustomerModal()">取消</button>
+      <button class="btn" style="flex:1" onclick="saveEditCustomer()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <script src="admin.js"></script>
 
 <!-- Editorial font for "editorial" type voice -->

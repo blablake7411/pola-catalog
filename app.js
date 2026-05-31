@@ -333,6 +333,8 @@ function closeCheckout() {
   document.getElementById('checkoutOverlay').style.display = 'none';
 }
 
+// ── Checkout helpers ──────────────────────────────────────────
+
 async function lookupPhone(phone) {
   const display = document.getElementById('co-agent-display');
   if (!phone || phone.length < 8) { display.style.display = 'none'; return; }
@@ -346,7 +348,7 @@ async function lookupPhone(phone) {
     const data = await res.json();
     if (data.found) {
       display.style.display = '';
-      display.textContent = `業務：${data.agent_name}`;
+      display.textContent = `已記錄您的業務：${data.agent_name}`;
     } else {
       display.style.display = 'none';
     }
@@ -355,23 +357,43 @@ async function lookupPhone(phone) {
   }
 }
 
+async function lookupAgentCode() {
+  const codeInput = document.getElementById('co-agent-code');
+  const display = document.getElementById('co-agent-code-display');
+  const code = codeInput.value.trim().toUpperCase();
+  if (!code) { display.style.display = 'none'; return; }
+  try {
+    const res = await fetch(`${SHOP_API}/api/agents/${code}`);
+    if (!res.ok) { display.style.display = ''; display.style.color = '#e53e3e'; display.textContent = '找不到此業務代碼'; return; }
+    const agent = await res.json();
+    display.style.display = '';
+    display.style.color = '#19884a';
+    display.textContent = `業務：${agent.name}`;
+  } catch (e) {
+    display.style.display = 'none';
+  }
+}
+
 async function submitOrder() {
   const name = document.getElementById('co-name').value.trim();
   const phone = document.getElementById('co-phone').value.trim();
+  const address = document.getElementById('co-address').value.trim();
   if (!name) { alert('請填寫姓名'); return; }
   if (!phone) { alert('請填寫電話'); return; }
+  if (!address) { alert('請填寫寄送地址'); return; }
 
   const btn = document.getElementById('checkoutSubmitBtn');
   btn.disabled = true;
   btn.textContent = '送出中...';
 
-  const agentCode = agentModeInfo ? agentModeInfo.code : (agentInfo ? agentInfo.code : null);
+  const formAgentCode = document.getElementById('co-agent-code').value.trim().toUpperCase() || null;
+  const agentCode = agentModeInfo ? agentModeInfo.code : formAgentCode;
 
   const payload = {
     agent_code: agentCode,
     customer_name: name,
     customer_phone: phone,
-    customer_address: document.getElementById('co-address').value.trim() || null,
+    customer_address: address || null,
     notes: document.getElementById('co-notes').value.trim() || null,
     items: cart.map(i => ({
       product_code: i.code || null,
@@ -396,13 +418,10 @@ async function submitOrder() {
     saveCart();
     updateCartFab();
 
-    const agentDisplay = document.getElementById('co-agent-display');
-    const agentName = agentModeInfo?.name
-      || (agentDisplay.style.display !== 'none' ? agentDisplay.textContent.replace('業務：','').split('（')[0] : null);
-
+    const agentName = order.agent_name || agentModeInfo?.name;
     document.getElementById('successAgentMsg').textContent = agentName
-      ? `業務 ${agentName} 會盡快與您確認金額。`
-      : '我們會安排業務盡快與您確認金額。';
+      ? `業務 ${agentName} 會盡快與您確認金額及出貨安排。`
+      : '收到您的詢單！業務會盡快與您聯繫確認。';
     document.getElementById('successOrderNum').textContent = `詢單編號：${order.order_number}`;
     document.getElementById('checkoutForm').style.display = 'none';
     document.getElementById('checkoutSuccess').style.display = '';
@@ -414,54 +433,166 @@ async function submitOrder() {
   }
 }
 
-// ── Agent Mode ────────────────────────────────────────────────
+// ── Portal ────────────────────────────────────────────────────
 
-function toggleAgentMode() {
-  if (agentModeInfo) { logoutAgentMode(); return; }
-  document.getElementById('agentLoginOverlay').style.display = 'flex';
-  document.getElementById('agentLoginCode').value = '';
-  document.getElementById('agentLoginError').textContent = '';
+function openPortal(tab = 'customer') {
+  document.getElementById('portalOverlay').classList.add('open');
+  switchPortalTab(tab);
+  if (tab === 'agent' && agentModeInfo) renderAgentDashboard(agentModeInfo.code);
 }
 
-function closeAgentLogin() {
-  document.getElementById('agentLoginOverlay').style.display = 'none';
+function closePortal() {
+  document.getElementById('portalOverlay').classList.remove('open');
 }
+
+function closePortalIfBg(e) {
+  if (e.target === document.getElementById('portalOverlay')) closePortal();
+}
+
+function switchPortalTab(tab) {
+  document.getElementById('portalTabCustomer').classList.toggle('active', tab === 'customer');
+  document.getElementById('portalTabAgent').classList.toggle('active', tab === 'agent');
+  document.getElementById('portalCustomerTab').style.display = tab === 'customer' ? '' : 'none';
+  document.getElementById('portalAgentTab').style.display = tab === 'agent' ? '' : 'none';
+}
+
+// ── Customer profile ──────────────────────────────────────────
+
+async function lookupCustomerProfile() {
+  const phone = document.getElementById('customerPhone').value.trim();
+  const err = document.getElementById('customerErr');
+  if (!phone) { err.textContent = '請輸入電話號碼'; return; }
+  err.textContent = '';
+  try {
+    const res = await fetch(`${SHOP_API}/api/customers/profile?phone=${encodeURIComponent(phone)}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+
+    document.getElementById('profileName').textContent = data.name || phone;
+    document.getElementById('profileMonthly').textContent = fmtNTD(data.monthly_retail);
+    document.getElementById('profileTotal').textContent = fmtNTD(data.total_retail);
+
+    const ordersEl = document.getElementById('profileOrders');
+    if (!data.orders.length) {
+      ordersEl.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px 0">尚無訂單記錄</div>';
+    } else {
+      ordersEl.innerHTML = data.orders.slice(0, 8).map(o => `
+        <div class="portal-order-item">
+          <div>
+            <div style="font-weight:600">${o.order_number}</div>
+            <div style="font-size:11px;color:#aaa">${(o.created_at || '').slice(0,10)} · ${o.items.length} 項商品</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:600">NTD ${(o.retail_total || 0).toLocaleString()}</div>
+            <div style="font-size:11px;color:#aaa">${o.status}</div>
+          </div>
+        </div>`).join('');
+    }
+
+    document.getElementById('portalCustomerLogin').style.display = 'none';
+    document.getElementById('portalCustomerProfile').style.display = '';
+  } catch (e) {
+    err.textContent = '查詢失敗，請稍後再試';
+  }
+}
+
+function resetCustomerProfile() {
+  document.getElementById('portalCustomerLogin').style.display = '';
+  document.getElementById('portalCustomerProfile').style.display = 'none';
+  document.getElementById('customerPhone').value = '';
+}
+
+function fmtNTD(n) { return 'NTD ' + Math.round(n || 0).toLocaleString(); }
+
+// ── Agent login / dashboard ───────────────────────────────────
 
 async function submitAgentLogin() {
-  const code = document.getElementById('agentLoginCode').value.trim().toUpperCase();
-  const err = document.getElementById('agentLoginError');
-  if (!code) { err.textContent = '請輸入業務代碼'; return; }
+  const phone = document.getElementById('agentLoginPhone').value.trim();
+  const pwd = document.getElementById('agentLoginPwd').value;
+  const err = document.getElementById('agentLoginErr');
+  if (!phone) { err.textContent = '請輸入電話號碼'; return; }
+  if (!pwd) { err.textContent = '請輸入密碼'; return; }
+  err.textContent = '';
   try {
-    const res = await fetch(`${SHOP_API}/api/agents/${code}`);
-    if (!res.ok) { err.textContent = '找不到此業務代碼，請確認後重試'; return; }
+    const res = await fetch(`${SHOP_API}/api/auth/agent`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ phone, password: pwd }),
+    });
+    if (!res.ok) { err.textContent = '電話或密碼不正確'; return; }
     const agent = await res.json();
     agentModeInfo = { code: agent.code, name: agent.name };
     sessionStorage.setItem('agentMode', JSON.stringify(agentModeInfo));
     document.getElementById('agentModeName').textContent = agent.name;
     document.getElementById('agentModeBanner').style.display = '';
-    document.getElementById('agentModeLabel').textContent = `業務模式：${agent.name}`;
-    closeAgentLogin();
+    renderAgentDashboard(agent.code, agent);
   } catch (e) {
     err.textContent = '連線失敗，請稍後再試';
   }
+}
+
+async function renderAgentDashboard(code, agentData) {
+  document.getElementById('portalAgentLogin').style.display = 'none';
+  document.getElementById('portalAgentDashboard').style.display = '';
+
+  try {
+    const res = await fetch(`${SHOP_API}/api/agents/${code}/stats`);
+    const data = await res.json();
+    const agent = agentData || data.agent;
+    const tierLabel = agent.agent_type === 'store' ? '店家業務' : `T${agent.current_tier} 個人業務`;
+    const discountLabel = `${Math.round((agent.discount_rate || 0.8) * 10)}折進貨`;
+
+    document.getElementById('dashName').textContent = agent.name;
+    document.getElementById('dashTierBadge').textContent = tierLabel;
+    document.getElementById('dashDiscount').textContent = `${discountLabel} · ${agent.code}`;
+    document.getElementById('dashMonthly').textContent = fmtNTD(data.monthly_retail);
+    document.getElementById('dashTotal').textContent = fmtNTD(data.total_retail);
+    document.getElementById('dashMonthlyOrders').textContent = data.monthly_order_count;
+    document.getElementById('dashCustomers').textContent = data.customer_count;
+
+    const ordersEl = document.getElementById('dashOrders');
+    if (!data.recent_orders.length) {
+      ordersEl.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px 0">本月尚無訂單</div>';
+    } else {
+      ordersEl.innerHTML = data.recent_orders.slice(0, 6).map(o => `
+        <div class="portal-order-item">
+          <div>
+            <div style="font-weight:600">${o.order_number}</div>
+            <div style="font-size:11px;color:#aaa">${(o.created_at || '').slice(0,10)}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:600">NTD ${(o.retail_total || 0).toLocaleString()}</div>
+            <div style="font-size:11px;color:#aaa">${o.status}</div>
+          </div>
+        </div>`).join('');
+    }
+  } catch (e) {
+    document.getElementById('dashOrders').innerHTML = '<div style="color:#aaa;font-size:13px">載入失敗</div>';
+  }
+}
+
+function logoutPortalAgent() {
+  logoutAgentMode();
+  document.getElementById('portalAgentLogin').style.display = '';
+  document.getElementById('portalAgentDashboard').style.display = 'none';
+  document.getElementById('agentLoginPhone').value = '';
+  document.getElementById('agentLoginPwd').value = '';
+  document.getElementById('agentLoginErr').textContent = '';
 }
 
 function logoutAgentMode() {
   agentModeInfo = null;
   sessionStorage.removeItem('agentMode');
   document.getElementById('agentModeBanner').style.display = 'none';
-  document.getElementById('agentModeLabel').textContent = '業務下單模式';
 }
 
 async function initAgent() {
-  // Restore agent mode from session
   const saved = sessionStorage.getItem('agentMode');
   if (saved) {
     try {
       agentModeInfo = JSON.parse(saved);
       document.getElementById('agentModeName').textContent = agentModeInfo.name;
       document.getElementById('agentModeBanner').style.display = '';
-      document.getElementById('agentModeLabel').textContent = `業務模式：${agentModeInfo.name}`;
     } catch (e) { sessionStorage.removeItem('agentMode'); }
   }
 }
