@@ -901,12 +901,30 @@ function openEditCustomerModal() {
   });
 
   loadAdminProducts();
-  editAllProducts = adminProducts.map(p => ({
-    name: p.name,
-    code: p.code || '',
-    price: parseInt((p.price || '').replace(/[^0-9]/g, '')) || 0,
-    series: p.series || '',
-  }));
+  editAllProducts = [];
+  adminProducts.forEach(p => {
+    const price = parseInt((p.price || '').replace(/[^0-9]/g, '')) || 0;
+    const base = { name: p.name, price, series: p.series || '' };
+    if (p.variants && p.variants.length > 0) {
+      p.variants.forEach(v => {
+        editAllProducts.push({
+          ...base,
+          code: v.code || p.code || '',
+          variant_label: v.label || '',
+          display: `${p.name}｜${v.label}`,
+          searchText: `${p.name} ${v.label} ${v.code || ''} ${p.code || ''}`.toLowerCase(),
+        });
+      });
+    } else {
+      editAllProducts.push({
+        ...base,
+        code: p.code || '',
+        variant_label: '',
+        display: p.name,
+        searchText: `${p.name} ${p.code || ''}`.toLowerCase(),
+      });
+    }
+  });
   const searchEl = document.getElementById('editProductSearch');
   if (searchEl) searchEl.value = '';
   fillEditProductSelect('');
@@ -929,20 +947,18 @@ function closeEditCustomerModal() {
 function fillEditProductSelect(query) {
   const q = query.toLowerCase().trim();
   const filtered = q
-    ? editAllProducts.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.code.toLowerCase().includes(q)
-      )
+    ? editAllProducts.filter(p => p.searchText.includes(q))
     : editAllProducts;
   const prodSel = document.getElementById('editNewProduct');
   prodSel.innerHTML = '<option value="">選擇商品…</option>' +
-    filtered.map(p =>
-      `<option value="${(p.code || p.name).replace(/"/g,'&quot;')}"
+    filtered.map((p, i) =>
+      `<option value="${i}"
         data-name="${p.name.replace(/"/g,'&quot;')}"
         data-price="${p.price}"
         data-series="${p.series.replace(/"/g,'&quot;')}"
         data-code="${p.code.replace(/"/g,'&quot;')}"
-        >${p.code ? p.code + ' ' : ''}${p.name} NTD ${p.price.toLocaleString()}</option>`
+        data-variant="${(p.variant_label||'').replace(/"/g,'&quot;')}"
+        >${p.code ? `[${p.code}] ` : ''}${p.display} — NTD ${p.price.toLocaleString()}</option>`
     ).join('');
 }
 
@@ -986,12 +1002,13 @@ function removeEditItem(idx) {
 function addEditItem() {
   const sel = document.getElementById('editNewProduct');
   const opt = sel.selectedOptions[0];
-  if (!opt || !opt.value || opt.value === '') return;
+  if (!opt || opt.value === '') return;
   const qty = Math.max(1, parseInt(document.getElementById('editNewQty').value) || 1);
   editItems.push({
     product_code: opt.dataset.code || null,
     product_name: opt.dataset.name,
     product_series: opt.dataset.series || null,
+    variant_label: opt.dataset.variant || null,
     unit_price: parseInt(opt.dataset.price) || 0,
     quantity: qty,
   });
