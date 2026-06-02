@@ -289,7 +289,8 @@ function openDrawer(orderNumber) {
   }
   actions += `
     <button class="btn ghost" style="flex:1;margin-left:8px" onclick="openEditCustomerModal()">編輯資料</button>
-    <button class="btn ghost" style="flex:1;margin-left:8px" onclick="printShippingSlip()">出貨單</button>`;
+    <button class="btn ghost" style="flex:1;margin-left:8px" onclick="printShippingSlip()">出貨單</button>
+    <button class="btn ghost" style="flex:1;margin-left:8px;color:#dc2626;border-color:#fca5a5" onclick="deleteOrder()">刪除</button>`;
   footer.innerHTML = actions;
 
   document.getElementById('drawer').classList.add('open');
@@ -299,6 +300,21 @@ function openDrawer(orderNumber) {
 function closeDrawer() {
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+async function deleteOrder() {
+  if (!selectedOrderId) return;
+  if (!confirm(`確定要永久刪除訂單 ${selectedOrderId}？\n此操作無法復原。`)) return;
+  try {
+    await apiFetch(`/api/admin/orders/${selectedOrderId}`, { method: 'DELETE' });
+    closeDrawer();
+    ORDERS = ORDERS.filter(o => o.order_number !== selectedOrderId);
+    selectedOrderId = null;
+    renderOrders();
+    updatePendingBadge();
+  } catch (e) {
+    alert('刪除失敗：' + e.message);
+  }
   selectedOrderId = null;
 }
 
