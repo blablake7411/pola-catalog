@@ -2,9 +2,27 @@ let activeCategory = '臉部保養';
 let activeSeries = '全部';
 
 var cart = JSON.parse(localStorage.getItem('pola_cart') || '[]');
-var agentInfo = null;       // set via URL ?agent= (legacy, kept for agent.html)
-var agentModeInfo = null;   // set via agent login session
+var agentInfo = null;
+var agentModeInfo = null;
 const SHOP_API = 'https://pola-shop-production.up.railway.app';
+
+function updateNavTop() {
+  const topBarH = document.getElementById('siteTopBar')?.offsetHeight || 57;
+  const wrap = document.getElementById('stickyNavWrap');
+  if (wrap) wrap.style.top = topBarH + 'px';
+}
+
+function formatPhone(phone) {
+  if (!phone) return phone;
+  const d = String(phone).replace(/\D/g, '');
+  if (d.length === 10 && d.startsWith('09')) return d.slice(0,4) + '-' + d.slice(4,7) + '-' + d.slice(7);
+  if (d.length === 10) return d.slice(0,2) + '-' + d.slice(2,6) + '-' + d.slice(6);
+  return phone;
+}
+
+function seriesId(s) {
+  return 'sec-' + s.replace(/[^\w一-鿿]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
 function renderColorSwatches(variants) {
   const thumbs = variants.map(v =>
     `<img src="${v.img}" alt="${v.label}" class="color-swatch-thumb"
@@ -88,33 +106,85 @@ function getSeriesForCategory(cat) {
 }
 
 function getFilteredProducts() {
-  return PRODUCTS.filter(p => {
-    if (p.mainCategory !== activeCategory) return false;
-    if (activeSeries !== '全部' && p.series !== activeSeries) return false;
-    return true;
-  });
+  return PRODUCTS.filter(p => p.mainCategory === activeCategory);
 }
 
 function renderSeriesFilter() {
   const bar = document.getElementById('seriesBar');
-  const series = getSeriesForCategory(activeCategory);
+  const series = getSeriesForCategory(activeCategory).filter(s => s !== '全部');
 
   if (series.length <= 1) {
     bar.classList.add('hidden');
     return;
   }
   bar.classList.remove('hidden');
+  bar.classList.remove('nav-collapse');
   bar.innerHTML = series.map(s =>
-    `<button class="series-pill${s === activeSeries ? ' active' : ''}" data-series="${s}">${s}</button>`
+    `<button class="series-pill" data-series="${s}">${s}</button>`
   ).join('');
 
   bar.querySelectorAll('.series-pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      activeSeries = btn.dataset.series;
-      renderSeriesFilter();
-      renderProducts();
+      const sid = seriesId(btn.dataset.series);
+      const el = document.getElementById(sid);
+      if (el) {
+        const navH = document.querySelector('.sticky-nav-wrap')?.offsetHeight || 0;
+        const headerH = document.querySelector('header')?.offsetHeight || 57;
+        const top = el.getBoundingClientRect().top + window.scrollY - navH - headerH;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      }
     });
   });
+}
+
+function renderProductCard(p) {
+  const isSizeVar  = p.variants && !!p.variants[0].price;
+  const isColorVar = p.variants && !p.variants[0].price;
+  const pname = p.name.replace(/'/g, "\\'");
+  return `
+  <div class="product-card" data-pkey="${p.name}" data-hero-img="${p.img || ''}">
+    <a href="${p.url || '#'}" target="_blank" rel="noopener" style="display:contents">
+    <div class="product-img-wrap">
+      ${p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="img-placeholder" style="display:none">POLA</div>`
+        : `<div class="img-placeholder" style="display:flex">POLA</div>`}
+    </div>
+    <div class="product-info">
+      <div class="product-top-row">
+        <span class="product-series">${p.series}</span>
+        ${p.code ? `<span class="product-code">${p.code}</span>` : ''}
+      </div>
+      <h3 class="product-name">${p.name}</h3>
+      ${!isSizeVar ? `<div class="product-spec-row">
+        ${p.size ? `<span class="product-size">${p.size}</span>` : ''}
+        ${p.price ? `<span class="product-price">${p.price}</span>` : ''}
+      </div>` : ''}
+      ${isColorVar ? renderColorSwatches(p.variants) : ''}
+      ${isSizeVar  ? renderSizeSwitcher(p.variants)  : ''}
+      ${p.refill ? `<p class="product-refill">${p.refill}</p>` : ''}
+      ${p.type ? `<p class="product-type">${p.type}</p>` : ''}
+      ${(p.tagline || p.description) ? `<hr class="product-divider">` : ''}
+      ${p.tagline ? `<p class="product-tagline">${p.tagline}</p>` : ''}
+      ${p.description ? `<p class="product-desc">${p.description}</p>` : ''}
+      ${p.usage ? `<p class="product-usage">${p.usage}</p>` : ''}
+      ${p.footnotes && p.footnotes.length ? `
+        <div class="product-footnotes">${p.footnotes.map(f => `<p>${f}</p>`).join('')}</div>` : ''}
+    </div>
+    </a>
+    <div class="product-cta-row" style="display:flex;border-top:1px solid #f0f0f0">
+      <a href="${p.url || '#'}" target="_blank" rel="noopener"
+        style="flex:1;padding:9px 12px;font-size:11px;color:#999;display:flex;align-items:center;justify-content:center;text-decoration:none;transition:color .15s"
+        onmouseover="this.style.color='#333'" onmouseout="this.style.color='#999'">
+        查看詳情 →
+      </a>
+      <div class="card-qty-ctrl" data-pkey="${p.name}">
+        <button class="cqc-minus" style="display:none" onclick="event.stopPropagation();cardQtyChange(this,'${pname}',-1)">−</button>
+        <span class="cqc-num" style="display:none">0</span>
+        <button class="cqc-plus add-label" onclick="event.stopPropagation();cardQtyChange(this,'${pname}',1)">+ 加入</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderProducts() {
@@ -122,68 +192,31 @@ function renderProducts() {
   const products = getFilteredProducts();
 
   if (products.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <p>此系列商品即將上架</p>
-      </div>`;
+    grid.innerHTML = `<div class="empty-state" style="padding:80px 20px;text-align:center;color:#bbb;width:100%">
+      <p style="font-size:15px;margin-bottom:8px">此分類商品即將上架</p></div>`;
     return;
   }
 
-  grid.innerHTML = products.map(p => {
-    const isSizeVar  = p.variants && !!p.variants[0].price;
-    const isColorVar = p.variants && !p.variants[0].price;
-    return `
-    <div class="product-card" data-pkey="${p.name}" data-hero-img="${p.img}">
-      <a href="${p.url || '#'}" target="_blank" rel="noopener" style="display:contents">
-      <div class="product-img-wrap">
-        ${p.img ? `<img
-          src="${p.img}"
-          alt="${p.name}"
-          loading="lazy"
-          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-        >
-        <div class="img-placeholder" style="display:none">POLA</div>` : `<div class="img-placeholder" style="display:flex">POLA</div>`}
-      </div>
-      <div class="product-info">
-        <div class="product-top-row">
-          <span class="product-series">${p.series}</span>
-          ${p.code ? `<span class="product-code">${p.code}</span>` : ''}
-        </div>
-        <h3 class="product-name">${p.name}</h3>
-        ${!isSizeVar ? `<div class="product-spec-row">
-          ${p.size ? `<span class="product-size">${p.size}</span>` : ''}
-          ${p.price ? `<span class="product-price">${p.price}</span>` : ''}
-        </div>` : ''}
-        ${isColorVar ? renderColorSwatches(p.variants) : ''}
-        ${isSizeVar  ? renderSizeSwitcher(p.variants)  : ''}
-        ${p.refill ? `<p class="product-refill">${p.refill}</p>` : ''}
-        ${p.type ? `<p class="product-type">${p.type}</p>` : ''}
-        ${(p.tagline || p.description) ? `<hr class="product-divider">` : ''}
-        ${p.tagline ? `<p class="product-tagline">${p.tagline}</p>` : ''}
-        ${p.description ? `<p class="product-desc">${p.description}</p>` : ''}
-        ${p.usage ? `<p class="product-usage">${p.usage}</p>` : ''}
-        ${p.footnotes && p.footnotes.length ? `
-          <div class="product-footnotes">
-            ${p.footnotes.map(f => `<p>${f}</p>`).join('')}
-          </div>` : ''}
-      </div>
-      </a>
-      <div class="product-cta-row" style="display:flex;border-top:1px solid #f0f0f0">
-        <a href="${p.url || '#'}" target="_blank" rel="noopener"
-          style="flex:1;padding:9px 12px;font-size:11px;color:#999;display:flex;align-items:center;justify-content:center;text-decoration:none;transition:color .15s"
-          onmouseover="this.style.color='#333'" onmouseout="this.style.color='#999'">
-          查看詳情 →
-        </a>
-        <button class="add-to-cart-btn"
-          data-pkey="${p.name}"
-          data-variant=""
-          onclick="handleAddToCart(this, '${p.name}')"
-          style="flex:1;border-left:1px solid #f0f0f0">加入收藏</button>
-      </div>
-    </div>`;
-  }).join('');
+  const seriesOrder = getSeriesForCategory(activeCategory).filter(s => s !== '全部');
+  const grouped = {};
+  seriesOrder.forEach(s => { grouped[s] = []; });
+  products.forEach(p => {
+    if (!grouped[p.series]) grouped[p.series] = [];
+    grouped[p.series].push(p);
+  });
 
-  updateAddButtons();
+  grid.innerHTML = seriesOrder
+    .filter(s => grouped[s] && grouped[s].length)
+    .map(s => `
+      <div class="series-section" id="${seriesId(s)}">
+        <h2 class="series-heading">${s}</h2>
+        <div class="series-products">
+          ${grouped[s].map(p => renderProductCard(p)).join('')}
+        </div>
+      </div>`)
+    .join('');
+
+  updateQtyDisplays();
 }
 
 document.querySelectorAll('.tab').forEach(tab => {
@@ -200,10 +233,38 @@ document.querySelectorAll('.tab').forEach(tab => {
 renderSeriesFilter();
 renderProducts();
 
-// Back-to-top visibility
+// Back-to-top + series bar hide/show + active pill
 const backToTopBtn = document.getElementById('backToTop');
+let lastScrollY = 0;
 window.addEventListener('scroll', () => {
-  backToTopBtn.classList.toggle('visible', window.scrollY > 300);
+  const y = window.scrollY;
+  backToTopBtn.classList.toggle('visible', y > 300);
+
+  // Series bar hide on scroll down, show on scroll up
+  const seriesBarEl = document.getElementById('seriesBar');
+  if (seriesBarEl && !seriesBarEl.classList.contains('hidden')) {
+    if (y > lastScrollY && y > 80) {
+      seriesBarEl.classList.add('nav-collapse');
+    } else {
+      seriesBarEl.classList.remove('nav-collapse');
+    }
+  }
+
+  // Update active series pill based on visible section
+  const sections = document.querySelectorAll('.series-section');
+  const navH = (document.querySelector('.sticky-nav-wrap')?.offsetHeight || 0) +
+               (document.querySelector('header')?.offsetHeight || 57) + 20;
+  let currentSeries = '';
+  sections.forEach(sec => {
+    if (sec.getBoundingClientRect().top <= navH) currentSeries = sec.id;
+  });
+  if (currentSeries) {
+    document.querySelectorAll('.series-pill').forEach(pill => {
+      pill.classList.toggle('active', seriesId(pill.dataset.series) === currentSeries);
+    });
+  }
+
+  lastScrollY = y <= 0 ? 0 : y;
 }, { passive: true });
 
 // ── Cart & Order System ────────────────────────────────────────
@@ -290,18 +351,86 @@ function addToCart(product, unitPrice, variantLabel, code) {
   updateAddButtons();
 }
 
-function isInCart(productName, variantLabel) {
-  const key = `${productName}__${variantLabel || ''}`;
-  return cart.some(i => i.key === key);
+function getCardVariantKey(card, productName) {
+  const product = PRODUCTS.find(p => p.name === productName);
+  if (!product || !product.variants) return '';
+  const isSizeVar = !!product.variants[0].price;
+  if (isSizeVar) {
+    const sw = card.querySelector('.variant-sw');
+    const idx = sw ? parseInt(sw.dataset.vidx || '0') : 0;
+    return product.variants[idx]?.label || '';
+  }
+  const active = card.querySelector('.color-swatch-thumb.active');
+  return active ? (active.dataset.label || '') : '';
 }
 
-function updateAddButtons() {
-  document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
-    const pkey = btn.dataset.pkey;
-    const variant = btn.dataset.variant || '';
-    btn.classList.toggle('in-cart', isInCart(pkey, variant));
-    btn.textContent = isInCart(pkey, variant) ? '已加入 ✓' : '加入收藏';
+function updateQtyDisplays() {
+  document.querySelectorAll('.card-qty-ctrl').forEach(ctrl => {
+    const pkey = ctrl.dataset.pkey;
+    const card = ctrl.closest('.product-card');
+    const vkey = getCardVariantKey(card, pkey);
+    const key = `${pkey}__${vkey}`;
+    const item = cart.find(i => i.key === key);
+    const qty = item ? item.qty : 0;
+    const minus = ctrl.querySelector('.cqc-minus');
+    const num = ctrl.querySelector('.cqc-num');
+    const plus = ctrl.querySelector('.cqc-plus');
+    if (qty > 0) {
+      minus.style.display = '';
+      num.style.display = '';
+      num.textContent = qty;
+      plus.textContent = '+';
+      plus.classList.remove('add-label');
+    } else {
+      minus.style.display = 'none';
+      num.style.display = 'none';
+      plus.textContent = '+ 加入';
+      plus.classList.add('add-label');
+    }
   });
+}
+
+function cardQtyChange(btn, productName, delta) {
+  const product = PRODUCTS.find(p => p.name === productName);
+  if (!product) return;
+  const card = btn.closest('.product-card');
+  let vkey = '', variantLabel = null, code = product.code || null, unitPrice = 0;
+
+  if (product.variants) {
+    const isSizeVar = !!product.variants[0].price;
+    if (isSizeVar) {
+      const sw = card.querySelector('.variant-sw');
+      const idx = sw ? parseInt(sw.dataset.vidx || '0') : 0;
+      const v = product.variants[idx];
+      unitPrice = parsePrice(v.price);
+      variantLabel = v.label;
+      code = v.code || code;
+      vkey = variantLabel || '';
+    } else {
+      unitPrice = parsePrice(product.price);
+      const active = card.querySelector('.color-swatch-thumb.active');
+      if (active) { variantLabel = active.dataset.label; code = active.dataset.code || code; vkey = variantLabel || ''; }
+    }
+  } else {
+    unitPrice = parsePrice(product.price);
+  }
+
+  if (!unitPrice && delta > 0) return;
+  const key = `${productName}__${vkey}`;
+  const existing = cart.find(i => i.key === key);
+
+  if (delta > 0) {
+    if (existing) { existing.qty += 1; }
+    else { cart.push({ key, name: product.name, series: product.series, variantLabel, code, unitPrice, qty: 1 }); }
+  } else if (existing) {
+    existing.qty -= 1;
+    if (existing.qty <= 0) cart.splice(cart.indexOf(existing), 1);
+  }
+
+  saveCart();
+  updateCartFab();
+  renderCartItems();
+  updateQtyDisplays();
 }
 
 function toggleCart() {
@@ -340,7 +469,7 @@ async function lookupPhone(phone) {
   if (!phone || phone.length < 8) { display.style.display = 'none'; return; }
   if (agentModeInfo) {
     display.style.display = '';
-    display.textContent = `業務：${agentModeInfo.name}（業務下單模式）`;
+    display.textContent = `顧問：${agentModeInfo.name}（顧問下單模式）`;
     return;
   }
   try {
@@ -348,7 +477,7 @@ async function lookupPhone(phone) {
     const data = await res.json();
     if (data.found) {
       display.style.display = '';
-      display.textContent = `已記錄您的業務：${data.agent_name}`;
+      display.textContent = `已記錄您的顧問：${data.agent_name}`;
     } else {
       display.style.display = 'none';
     }
@@ -364,11 +493,11 @@ async function lookupAgentCode() {
   if (!code) { display.style.display = 'none'; return; }
   try {
     const res = await fetch(`${SHOP_API}/api/agents/${code}`);
-    if (!res.ok) { display.style.display = ''; display.style.color = '#e53e3e'; display.textContent = '找不到此業務代碼'; return; }
+    if (!res.ok) { display.style.display = ''; display.style.color = '#e53e3e'; display.textContent = '找不到此顧問代碼'; return; }
     const agent = await res.json();
     display.style.display = '';
     display.style.color = '#19884a';
-    display.textContent = `業務：${agent.name}`;
+    display.textContent = `顧問：${agent.name}`;
   } catch (e) {
     display.style.display = 'none';
   }
@@ -420,8 +549,8 @@ async function submitOrder() {
 
     const agentName = order.agent_name || agentModeInfo?.name;
     document.getElementById('successAgentMsg').textContent = agentName
-      ? `業務 ${agentName} 會盡快與您確認金額及出貨安排。`
-      : '收到您的詢單！業務會盡快與您聯繫確認。';
+      ? `顧問 ${agentName} 會盡快與您確認金額及出貨安排。`
+      : '收到您的詢單！顧問會盡快與您聯繫確認。';
     document.getElementById('successOrderNum').textContent = `詢單編號：${order.order_number}`;
     document.getElementById('checkoutForm').style.display = 'none';
     document.getElementById('checkoutSuccess').style.display = '';
@@ -525,6 +654,7 @@ async function submitAgentLogin() {
     sessionStorage.setItem('agentMode', JSON.stringify(agentModeInfo));
     document.getElementById('agentModeName').textContent = agent.name;
     document.getElementById('agentModeBanner').style.display = '';
+    updateNavTop();
     renderAgentDashboard(agent.code, agent);
   } catch (e) {
     err.textContent = '連線失敗，請稍後再試';
@@ -539,7 +669,7 @@ async function renderAgentDashboard(code, agentData) {
     const res = await fetch(`${SHOP_API}/api/agents/${code}/stats`);
     const data = await res.json();
     const agent = agentData || data.agent;
-    const tierLabel = agent.agent_type === 'store' ? '店家業務' : `T${agent.current_tier} 個人業務`;
+    const tierLabel = agent.agent_type === 'store' ? '店家顧問' : `T${agent.current_tier} 個人顧問`;
     const discountLabel = `${Math.round((agent.discount_rate || 0.8) * 10)}折進貨`;
 
     document.getElementById('dashName').textContent = agent.name;
@@ -584,6 +714,7 @@ function logoutAgentMode() {
   agentModeInfo = null;
   sessionStorage.removeItem('agentMode');
   document.getElementById('agentModeBanner').style.display = 'none';
+  updateNavTop();
 }
 
 async function initAgent() {
@@ -634,3 +765,5 @@ function handleAddToCart(btn, productName) {
 
 initAgent();
 updateCartFab();
+updateNavTop();
+window.addEventListener('resize', updateNavTop, { passive: true });

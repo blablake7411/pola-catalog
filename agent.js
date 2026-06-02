@@ -2,26 +2,203 @@
 // Agent dashboard logic
 // ─────────────────────────────────────────────────────────────
 
-// Determine which agent is "logged in" (URL ?agent=A002, default A002)
+function formatPhone(phone) {
+  if (!phone) return phone;
+  const d = String(phone).replace(/\D/g, '');
+  if (d.length === 10 && d.startsWith('09')) return d.slice(0,4) + '-' + d.slice(4,7) + '-' + d.slice(7);
+  if (d.length === 10) return d.slice(0,2) + '-' + d.slice(2,6) + '-' + d.slice(6);
+  return phone;
+}
+
+const SHOP_API_AGENT = 'https://pola-shop-production.up.railway.app';
 const params = new URLSearchParams(window.location.search);
 let currentAgentCode = params.get('agent') || 'A002';
 let currentAgent = AGENTS.find(a => a.code === currentAgentCode) || AGENTS[1];
+let usingBackend = false;
 
-function init() {
-  // Populate agent switcher (demo only — in real app you'd login)
+const now = new Date();
+let currentAgentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+async function changeAgentMonth(val) {
+  if (!val) return;
+  currentAgentMonth = val;
+  const code = params.get('agent');
+  if (code) await tryRenderFromBackend(code);
+}
+
+async function init() {
   const sel = document.getElementById('agentSwitch');
-  AGENTS.forEach(a => {
-    const opt = document.createElement('option');
-    opt.value = a.code;
-    opt.textContent = `切換：${a.name} (${a.code})`;
-    if (a.code === currentAgent.code) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change', () => {
-    window.location.search = '?agent=' + sel.value;
-  });
+  if (sel) sel.style.display = 'none';
+  const mi = document.getElementById('agentMonthInput');
+  if (mi) {
+    const now2 = new Date();
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
+      const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = `${d.getFullYear()} / ${d.getMonth()+1}月`;
+      if (val === currentAgentMonth) opt.selected = true;
+      mi.appendChild(opt);
+    }
+  }
 
-  renderEverything();
+  const urlCode = params.get('agent');
+  if (!urlCode) {
+    showAgentError('請從管理後台點擊「後台」按鈕開啟此頁。');
+    return;
+  }
+
+  const ok = await tryRenderFromBackend(urlCode);
+  if (!ok) {
+    showAgentError(`顧問代碼「${urlCode}」資料載入失敗，請稍後重試或確認代碼是否正確。`);
+  }
+}
+
+function setEl(id, prop, val) {
+  const el = document.getElementById(id);
+  if (el) el[prop] = val;
+}
+function setQS(sel, prop, val) {
+  const el = document.querySelector(sel);
+  if (el) el[prop] = val;
+}
+
+function showAgentError(msg) {
+  setEl('agentName', 'textContent', '—');
+  setEl('tierPill', 'innerHTML', '');
+  setQS('.greeting', 'textContent', msg);
+  ['wsRetail','wsOrders','wsPayable','payRetail','payDiscount','payTotal'].forEach(id => setEl(id, 'textContent', '—'));
+  setEl('ladder', 'innerHTML', '');
+  const fill = document.getElementById('progressFill');
+  if (fill) fill.style.width = '0%';
+  setEl('nextTarget', 'innerHTML', '');
+  setEl('progressNow', 'textContent', '');
+  setEl('progressMax', 'textContent', '');
+  setEl('agentLink', 'textContent', '—');
+  setEl('orderCountSub', 'textContent', '');
+  setEl('ordersList', 'innerHTML', `<div class="empty" style="text-align:center;padding:24px;color:#aaa">${msg}<br><br><button onclick="location.reload()" style="background:#111;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-family:inherit">重新整理</button></div>`);
+}
+
+async function tryRenderFromBackend(code) {
+  try {
+    const res = await fetch(`${SHOP_API_AGENT}/api/agents/${code}/stats?month=${currentAgentMonth}`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    const agent = data.agent;
+    if (!agent) return false;
+
+    usingBackend = true;
+    const isStore = agent.agent_type === 'store';
+    const rules = isStore ? STORE_TIER_RULES : TIER_RULES;
+    const currentTier = agent.current_tier || 1;
+    const currentRule = rules.find(t => t.tier === currentTier) || rules[0];
+
+    const [mYear, mMon] = currentAgentMonth.split('-').map(Number);
+    const monthLabel = `${mYear}年${mMon}月`;
+
+    // ── Welcome card ──────────────────────────────────────────
+    setEl('agentName', 'textContent', agent.name);
+    const tierLabel = isStore
+      ? `${currentRule.name} · ${currentRule.discount * 10}折進貨`
+      : `T${currentTier} ${currentRule.name} · ${currentRule.discount * 10}折進貨`;
+    setEl('tierPill', 'innerHTML', `<span style="opacity:.6">●</span> ${tierLabel}`);
+    setQS('.greeting', 'textContent', `Hi！這是你在 POLA 的顧問後台 — ${monthLabel}`);
+
+    const retailSum = data.monthly_retail || 0;
+    const orderCount = data.monthly_order_count || 0;
+    const payable = Math.round(retailSum * currentRule.discount);
+
+    setEl('wsRetail', 'textContent', fmt(retailSum));
+    setEl('wsOrders', 'textContent', orderCount);
+    setEl('wsPayable', 'textContent', fmt(payable));
+
+    // ── Tier ladder（用 current_tier，不用業績反推）─────────────
+    const prefix = isStore ? 'S' : 'T';
+    setEl('ladder', 'innerHTML', rules.map(t => {
+      let cls = '';
+      if (t.tier === currentTier) cls = 'active';
+      else if (t.tier < currentTier) cls = 'passed';
+      return `<div class="ladder-step ${cls}">
+        <div class="lab">${prefix}${t.tier} · ${t.name}</div>
+        <div class="range">${t.discount * 10}折 · ${formatRange(t)}</div>
+      </div>`;
+    }).join(''));
+
+    // ── Progress（從 current_tier 的門檻往上算）──────────────────
+    const nextTierObj = rules.find(t => t.tier === currentTier + 1) || null;
+    const maintainThreshold = currentRule.minRetail;
+    let progress = 0;
+
+    if (!nextTierObj) {
+      progress = maintainThreshold > 0 ? Math.min(100, (retailSum / maintainThreshold) * 100) : 100;
+      setEl('progressMax', 'textContent', fmt(maintainThreshold));
+      setEl('nextTarget', 'innerHTML', `<strong style="color:#19884a">已達最高階 · ${prefix}${currentTier} ${currentRule.name}</strong>`);
+    } else if (retailSum >= maintainThreshold) {
+      progress = Math.min(100, ((retailSum - maintainThreshold) / (nextTierObj.minRetail - maintainThreshold)) * 100);
+      const gap = Math.max(0, nextTierObj.minRetail - retailSum);
+      setEl('progressMax', 'textContent', fmt(nextTierObj.minRetail));
+      setEl('nextTarget', 'innerHTML', `距離 <strong>${prefix}${nextTierObj.tier} ${nextTierObj.name}</strong> 還差 <strong class="mono">${fmt(gap)}</strong>`);
+    } else {
+      progress = maintainThreshold > 0 ? Math.min(100, (retailSum / maintainThreshold) * 100) : 0;
+      setEl('progressMax', 'textContent', fmt(maintainThreshold));
+      setEl('nextTarget', 'innerHTML', `需達 <strong>${fmt(maintainThreshold)}</strong> 維持 ${prefix}${currentTier}`);
+    }
+
+    const fill = document.getElementById('progressFill');
+    if (fill) fill.style.width = progress + '%';
+    setEl('progressNow', 'textContent', '↑ ' + fmt(retailSum));
+
+    // ── Agent link → 只顯示代碼 ──────────────────────────────
+    setEl('agentLink', 'textContent', code);
+
+    // ── Payable ───────────────────────────────────────────────
+    setEl('payRetail', 'textContent', fmt(retailSum));
+    setEl('payDiscount', 'textContent', `${currentRule.discount * 10}折 (−${fmt(retailSum - payable)})`);
+    setEl('payTotal', 'textContent', fmt(payable));
+
+    // ── Orders ────────────────────────────────────────────────
+    const orders = data.recent_orders || [];
+    setEl('orderCountSub', 'textContent', `共 ${orderCount} 筆`);
+    const list = document.getElementById('ordersList');
+    if (!orders.length) {
+      list.innerHTML = `<div class="empty">本月還沒有訂單，分享你的專屬連結給客人開始接單！</div>`;
+    } else {
+      list.innerHTML = orders.map(o => {
+        const retail = o.retail_total || 0;
+        const cost = o.agent_cost_total || Math.round(retail * currentRule.discount);
+        const itemsSum = o.items?.length > 0
+          ? (o.items.length === 1 ? o.items[0].product_name : `${o.items[0].product_name} 等 ${o.items.length} 項`)
+          : '—';
+        const customerLine = o.customer_name
+          ? `${o.customer_name}${o.customer_phone ? ' · ' + formatPhone(o.customer_phone) : ''}`
+          : itemsSum;
+        return `
+        <div class="order-card">
+          <div class="order-row1">
+            <div class="order-meta">
+              <span class="num">${o.order_number}</span>
+              <span class="date">${(o.created_at || '').slice(0, 16).replace('T', ' ')}</span>
+              <span class="status ${o.status}">${o.status}</span>
+            </div>
+            <div class="order-amount">
+              <div class="retail mono">原價 ${fmt(retail)}</div>
+              <div class="agent-cost mono">${fmt(cost)}</div>
+            </div>
+          </div>
+          <div class="order-row2">
+            <span class="order-customer">${customerLine}</span>
+            <span class="order-items-sum">${o.customer_name ? itemsSum : ''}</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    return true;
+  } catch (e) {
+    console.error('[agent] tryRenderFromBackend error:', e);
+    return false;
+  }
 }
 
 function renderEverything() {
@@ -32,14 +209,14 @@ function renderEverything() {
 
   // Welcome
   document.getElementById('agentName').textContent = currentAgent.name;
+  const isStore = currentAgent.agentType === 'store';
+  const tierLabel = isStore ? `${currentRule.name} · ${currentRule.discount * 10}折進貨` : `T${currentAgent.currentTier} ${currentRule.name} · ${currentRule.discount * 10}折進貨`;
   document.getElementById('tierPill').innerHTML =
-    `<span style="opacity:.6">●</span> T${currentAgent.currentTier} · ${currentRule.name} · ${currentRule.discount * 10}折進貨`;
+    `<span style="opacity:.6">●</span> ${tierLabel}`;
 
   document.getElementById('wsRetail').textContent = fmt(stats.retailSum);
   document.getElementById('wsOrders').textContent = stats.orderCount;
   document.getElementById('wsPayable').textContent = fmt(stats.agentCostSum);
-  document.getElementById('wsMargin').textContent =
-    'NTD ' + ((1 - currentRule.discount) * 10000).toLocaleString();
 
   // Tier ladder
   renderLadder(calcTier, stats.retailSum);
@@ -59,25 +236,22 @@ function renderEverything() {
     document.getElementById('nextTarget').innerHTML =
       `距離 <strong>T${next.tier} ${next.name}</strong> 還差 <strong class="mono">${fmt(remaining)}</strong>`;
     cta.classList.remove('maxed');
-    cta.innerHTML = `
-      升上 <strong>T${next.tier}</strong> 後進貨折扣變成 <strong>${next.discount * 10}折</strong>，
-      同樣 NTD 10,000 原價的單，你可以多賺 <strong>NTD ${((next.discount === 0.75 ? 0.05 : 0.05) * 10000).toLocaleString()}</strong>！
-    `;
+    const saving = Math.round((currentRule.discount - next.discount) * 10000);
+    cta.innerHTML = '';
   } else {
     document.getElementById('nextTarget').innerHTML = `<strong style="color:#19884a">已達最高階</strong>`;
     cta.classList.add('maxed');
-    cta.innerHTML = `🏆 你已達最高階 <strong>T3 資深</strong>，享 7 折進貨價，每萬元原價賺 3,000。`;
+    cta.innerHTML = '';
   }
 
   // Mismatch warning for next month
   if (calcTier.tier !== currentAgent.currentTier) {
     const arrow = calcTier.tier > currentAgent.currentTier ? '↑' : '↓';
-    cta.innerHTML += `<br><span style="font-size:12px;opacity:.85">📅 依本月業績，下個月 1 號將自動調整至 <strong>T${calcTier.tier}</strong> ${arrow}</span>`;
+    cta.innerHTML += `<br><span style="font-size:12px;opacity:.85">依本月業績，下個月 1 號將自動調整至 <strong>T${calcTier.tier}</strong> ${arrow}</span>`;
   }
 
   // Agent link
-  const baseUrl = window.location.origin + window.location.pathname.replace('agent.html', 'index.html');
-  document.getElementById('agentLink').textContent = `index.html?agent=${currentAgent.code}`;
+  document.getElementById('agentLink').textContent = currentAgent.code;
 
   // Payable
   document.getElementById('payRetail').textContent = fmt(stats.retailSum);
@@ -105,9 +279,9 @@ function renderLadder(calcTier, retailSum) {
 }
 
 function formatRange(t) {
-  if (t.maxRetail === Infinity) return '14 萬+';
-  if (t.minRetail === 0) return '0 – 7 萬';
-  return '7 – 14 萬';
+  if (t.maxRetail === Infinity) return (t.minRetail / 10000) + ' 萬+';
+  if (t.minRetail === 0) return '0 – ' + (t.maxRetail / 10000) + ' 萬';
+  return (t.minRetail / 10000) + ' – ' + (t.maxRetail / 10000) + ' 萬';
 }
 
 function renderOrders() {
@@ -143,7 +317,7 @@ function renderOrders() {
           </div>
         </div>
         <div class="order-row2">
-          <span class="order-customer">${o.customerName} · ${o.customerPhone || '無電話'}</span>
+          <span class="order-customer">${o.customerName} · ${formatPhone(o.customerPhone) || '無電話'}</span>
           <span class="order-items-sum">${itemsSum}</span>
         </div>
       </div>
@@ -183,7 +357,7 @@ function openDrawer(orderNumber) {
   document.getElementById('drawerBody').innerHTML = `
     <dl class="info-grid">
       <dt>客人</dt><dd>${o.customerName}</dd>
-      <dt>電話</dt><dd>${o.customerPhone || '—'}</dd>
+      <dt>電話</dt><dd>${formatPhone(o.customerPhone) || '—'}</dd>
       <dt>地址</dt><dd>${o.address || '—'}</dd>
       <dt>付款</dt><dd>${o.payment}</dd>
       <dt>狀態</dt><dd><span class="status ${o.status}">${o.status}</span></dd>
@@ -196,7 +370,7 @@ function openDrawer(orderNumber) {
       <div class="row"><span class="label">原價總額（業績）</span><span class="mono">${fmt(retail)}</span></div>
       <div class="row"><span class="label">進貨折扣</span><span class="mono">${o.agentDiscount * 10}折</span></div>
       <div class="row final"><span>你要付給公司</span><span class="mono">${fmt(cost)}</span></div>
-      <div class="row" style="margin-top:8px"><span class="label" style="color:#888">提示：你跟客人成交多少由你決定，差額即你的分潤</span><span></span></div>
+      <div class="row" style="margin-top:8px"><span class="label" style="color:#888;font-size:12px">你跟客人成交多少由你決定，公司只收進貨折扣價</span><span></span></div>
     </div>
   `;
 

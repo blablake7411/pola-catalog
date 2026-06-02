@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POLA · 業務後台</title>
+<title>POLA · 顧問後台</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -263,12 +263,21 @@
 
   /* Mobile */
   @media (max-width: 700px) {
-    .welcome { padding: 22px 20px; }
-    .welcome-stats { grid-template-columns: repeat(2, 1fr); gap: 14px; }
-    .ws-item .value { font-size: 18px; }
+    .welcome { padding: 22px 18px; }
+    .welcome-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 18px; }
+    .ws-item .value { font-size: 17px; }
+    .ws-item .label { font-size: 10px; }
     .ladder { grid-template-columns: 1fr; gap: 6px; }
-    .topbar { padding: 12px 16px; }
+    .topbar { padding: 10px 14px; }
     .topbar-right { font-size: 11px; gap: 8px; }
+    .topbar-right select { max-width: 140px; font-size: 11px; padding: 5px 24px 5px 10px; }
+    .shell { padding: 16px 14px 80px; }
+    .welcome-stats .ws-item:last-child { display: none; } /* hide 4th if exists */
+    .drawer { width: 100vw; }
+    .payable { padding: 14px 16px; }
+    .payable-row { font-size: 12px; }
+    .payable-row.total { font-size: 14px; }
+    .order-amount .agent-cost { font-size: 13px; }
   }
 </style>
 </head>
@@ -277,11 +286,12 @@
 <div class="topbar">
   <div class="brand">
     <img src="assets/logo.png" alt="POLA" class="logo-img">
-    <span class="sub">業務後台</span>
+    <span class="sub">顧問後台</span>
   </div>
   <div class="topbar-right">
     <select id="agentSwitch"></select>
-    <a href="index.html">客人目錄</a>
+    <select id="agentMonthInput" style="background:#222;color:#fff;border:1px solid #333;border-radius:16px;padding:5px 10px;font-size:11px;font-family:inherit;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none" onchange="changeAgentMonth(this.value)"></select>
+    <a href="/">客人目錄</a>
   </div>
 </div>
 
@@ -292,9 +302,9 @@
       <span id="agentName">—</span>
       <span class="tier-pill" id="tierPill">—</span>
     </h1>
-    <div class="greeting">Hi！這是你在 POLA 的業務後台 — 2026年5月</div>
+    <div class="greeting">Hi！這是你在 POLA 的顧問後台</div>
 
-    <div class="welcome-stats">
+    <div class="welcome-stats" style="grid-template-columns: repeat(3, 1fr)">
       <div class="ws-item">
         <div class="label">本月業績</div>
         <div class="value mono" id="wsRetail">—</div>
@@ -309,11 +319,6 @@
         <div class="label">本月應付</div>
         <div class="value mono" id="wsPayable">—</div>
         <div class="sub">付給公司</div>
-      </div>
-      <div class="ws-item">
-        <div class="label">分潤空間</div>
-        <div class="value mono" id="wsMargin">—</div>
-        <div class="sub">每萬元原價</div>
       </div>
     </div>
   </div>
@@ -333,16 +338,14 @@
       <span class="mono" id="progressNow">—</span>
       <span class="mono" id="progressMax">—</span>
     </div>
-    <div class="progress-cta" id="progressCta"></div>
   </div>
 
   <!-- Notice -->
   <div class="notice">
     <div class="notice-icon">i</div>
     <div class="notice-content">
-      <strong>分潤怎麼算？</strong>　業績以「市面原價」累計，下個月 1 號重新分級。<br>
-      你跟客人成交多少錢由你決定 — 公司只跟你收「進貨折扣價」。<br>
-      <strong>專屬連結：</strong>把 <span class="mono" id="agentLink">—</span> 給客人，他下單就會自動算在你頭上。
+      <strong>專屬代碼：</strong><span class="mono" id="agentLink">—</span><br>
+      <span style="font-size:12px;color:#666">把代碼給客人填在下單時的「顧問代碼」欄，訂單就會自動算在你頭上。</span>
     </div>
   </div>
 

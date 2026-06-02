@@ -77,39 +77,44 @@
     }
     .portal-order-item:last-child { border: none; }
     .portal-section-title { font-size: 11px; color: #888; letter-spacing: 1.5px; text-transform: uppercase; margin: 16px 0 8px; }
-    /* Agent mode banner */
-    #agentModeBanner {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-      background: #111; color: #fff; text-align: center; padding: 8px 16px; font-size: 13px;
-    }
   </style>
 </head>
 <body>
 
+  <div id="siteTopBar">
+    <!-- Agent Mode Banner -->
+    <div id="agentModeBanner" style="display:none">
+      顧問模式：<strong id="agentModeName"></strong>
+      <span style="margin-left:14px;color:#aaa;cursor:pointer;font-size:12px;text-decoration:underline" onclick="openPortal('agent')">查看業績</span>
+      <span style="margin-left:12px;color:#aaa;cursor:pointer;font-size:12px;text-decoration:underline" onclick="logoutAgentMode()">退出</span>
+    </div>
+
   <header>
     <div class="header-inner">
-      <div class="logo-wrap">
+      <a href="/" class="logo-wrap" style="text-decoration:none">
         <img src="assets/logo.png" alt="POLA" class="logo-img">
         <span class="tagline">Science. Art. Love.</span>
-      </div>
-      <a href="https://lin.ee/qxRpzSj" target="_blank" rel="noopener" class="line-header-btn" aria-label="LINE 聯絡業務">
+      </a>
+      <a href="https://lin.ee/qxRpzSj" target="_blank" rel="noopener" class="line-header-btn" aria-label="LINE 聯絡顧問">
         <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
           <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.105.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
         </svg>
       </a>
     </div>
   </header>
+  </div><!-- /siteTopBar -->
 
-  <nav class="category-nav">
-    <div class="category-tabs">
-      <button class="tab active" data-cat="臉部保養">臉部保養</button>
-      <button class="tab" data-cat="彩妝">彩妝</button>
-      <button class="tab" data-cat="身體保養">身體保養</button>
-      <button class="tab" data-cat="頭髮護理">頭髮護理</button>
-    </div>
-  </nav>
-
-  <div class="series-bar" id="seriesBar"></div>
+  <div class="sticky-nav-wrap" id="stickyNavWrap">
+    <nav class="category-nav">
+      <div class="category-tabs">
+        <button class="tab active" data-cat="臉部保養">臉部保養</button>
+        <button class="tab" data-cat="彩妝">彩妝</button>
+        <button class="tab" data-cat="身體保養">身體保養</button>
+        <button class="tab" data-cat="頭髮護理">頭髮護理</button>
+      </div>
+    </nav>
+    <div class="series-bar" id="seriesBar"></div>
+  </div>
 
   <main class="product-grid" id="productGrid"></main>
 
@@ -135,7 +140,7 @@
       <div class="cart-empty">尚未加入任何商品</div>
     </div>
     <div class="cart-footer" id="cartFooter" style="display:none">
-      <p style="font-size:11px;color:#aaa;text-align:center;margin:0 0 10px">金額由業務確認後告知</p>
+      <p style="font-size:11px;color:#aaa;text-align:center;margin:0 0 10px">金額由顧問確認後告知</p>
       <button class="cart-checkout-btn" onclick="openCheckout()">填寫詢單資料</button>
     </div>
   </div>
@@ -148,22 +153,23 @@
           <h2 style="margin:0">填寫詢單資料</h2>
           <button onclick="closeCheckout()" style="background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1">&times;</button>
         </div>
+        <p style="font-size:12px;color:#888;margin:-4px 0 14px;line-height:1.6">請填寫收件人資料，供產品寄送使用。</p>
         <div class="checkout-field">
-          <label>姓名 *</label>
-          <input id="co-name" type="text" placeholder="請輸入您的姓名">
+          <label>收件人姓名 *</label>
+          <input id="co-name" type="text" placeholder="請輸入收件人姓名">
         </div>
         <div class="checkout-field">
-          <label>電話 *</label>
-          <input id="co-phone" type="tel" placeholder="手機號碼" onblur="lookupPhone(this.value)">
+          <label>收件人電話 * <span style="color:#aaa;font-weight:400;font-size:10px">只需輸入數字</span></label>
+          <input id="co-phone" type="tel" placeholder="例：0911000888" oninput="this.value=this.value.replace(/\D/g,'')" onblur="lookupPhone(this.value)">
           <div id="co-agent-display" style="display:none;margin-top:6px;padding:8px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#19884a"></div>
         </div>
         <div class="checkout-field">
-          <label>寄送地址 *</label>
-          <input id="co-address" type="text" placeholder="收件地址">
+          <label>收件人地址 *</label>
+          <input id="co-address" type="text" placeholder="請輸入寄送地址">
         </div>
         <div class="checkout-field">
-          <label>業務代碼（選填）</label>
-          <input id="co-agent-code" type="text" placeholder="由業務提供，沒有代碼也可直接下單" style="text-transform:uppercase" onblur="lookupAgentCode()">
+          <label>顧問代碼（選填）</label>
+          <input id="co-agent-code" type="text" placeholder="由顧問提供，沒有代碼也可直接下單" style="text-transform:uppercase" onblur="lookupAgentCode()">
           <div id="co-agent-code-display" style="display:none;margin-top:6px;padding:8px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#19884a"></div>
         </div>
         <div class="checkout-field">
@@ -172,27 +178,22 @@
         </div>
         <button class="checkout-submit" id="checkoutSubmitBtn" onclick="submitOrder()">送出詢單</button>
       </div>
-      <div id="checkoutSuccess" class="order-success" style="display:none">
+      <div id="checkoutSuccess" class="order-success" style="display:none;position:relative">
+        <button onclick="closeCheckout()" style="position:absolute;top:-4px;right:-4px;background:transparent;border:none;font-size:26px;color:rgba(0,0,0,0.2);cursor:pointer;padding:4px 8px;line-height:1" title="關閉">×</button>
         <div class="checkmark">✓</div>
         <h3>詢單已送出！</h3>
+        <p style="font-size:13px;color:#888;margin:6px 0 4px">若有配合的顧問，請務必填上顧問代碼，以確保訂單正確歸屬。</p>
         <p id="successAgentMsg" style="font-size:14px;color:#555;margin:10px 0 4px"></p>
         <p id="successOrderNum" style="font-weight:700;font-size:13px;color:#aaa"></p>
         <div style="margin:20px auto;text-align:center;max-width:180px">
           <img src="assets/line-qr.png" alt="LINE QR Code" style="width:140px;height:140px;border-radius:10px;border:1px solid #eee">
-          <p style="font-size:12px;color:#888;margin-top:8px;line-height:1.5">掃描加入官方 LINE<br>業務會與您確認金額及出貨</p>
+          <p style="font-size:12px;color:#888;margin-top:8px;line-height:1.5">掃描加入官方 LINE<br>顧問會與您確認金額及出貨</p>
         </div>
         <button onclick="closeCheckout()" style="background:#111;color:#fff;border:none;border-radius:12px;padding:12px 32px;font-size:14px;font-weight:600;cursor:pointer">
           繼續瀏覽
         </button>
       </div>
     </div>
-  </div>
-
-  <!-- Agent Mode Banner -->
-  <div id="agentModeBanner" style="display:none">
-    業務模式：<strong id="agentModeName"></strong>
-    <span style="margin-left:14px;color:#aaa;cursor:pointer;font-size:12px;text-decoration:underline" onclick="openPortal('agent')">查看業績</span>
-    <span style="margin-left:12px;color:#aaa;cursor:pointer;font-size:12px;text-decoration:underline" onclick="logoutAgentMode()">退出</span>
   </div>
 
   <!-- Portal Modal -->
@@ -204,14 +205,14 @@
       </div>
       <div class="portal-tabs">
         <button class="portal-tab-btn active" id="portalTabCustomer" onclick="switchPortalTab('customer')">查詢訂單</button>
-        <button class="portal-tab-btn" id="portalTabAgent" onclick="switchPortalTab('agent')">業務專區</button>
+        <button class="portal-tab-btn" id="portalTabAgent" onclick="switchPortalTab('agent')">顧問專區</button>
       </div>
 
       <!-- 客人查詢 tab -->
       <div id="portalCustomerTab" class="portal-body">
         <div id="portalCustomerLogin">
           <p style="font-size:13px;color:#666;margin:0 0 14px;line-height:1.6">輸入您的電話號碼，查看您的歷史訂單和累積消費記錄。</p>
-          <input class="portal-input" id="customerPhone" type="tel" placeholder="您的手機號碼">
+          <input class="portal-input" id="customerPhone" type="tel" placeholder="您的手機號碼" oninput="this.value=this.value.replace(/\D/g,'')">
           <div class="portal-err" id="customerErr"></div>
           <button class="portal-btn" onclick="lookupCustomerProfile()">查詢</button>
         </div>
@@ -239,16 +240,16 @@
       <div id="portalAgentTab" class="portal-body" style="display:none">
         <div id="portalAgentLogin">
           <div style="background:#f8f8f8;border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px;color:#555;line-height:1.6">
-            此區域為 POLA 業務專屬登入區。<br>
-            如您是一般客人，歡迎掃描加入官方 LINE 由業務為您服務。
+            此區域為 POLA 顧問專屬登入區。<br>
+            如您是一般客人，歡迎掃描加入官方 LINE 由顧問為您服務。
             <div style="text-align:center;margin-top:12px">
               <img src="assets/line-qr.png" alt="LINE" style="width:90px;height:90px;border-radius:8px">
             </div>
           </div>
-          <input class="portal-input" id="agentLoginPhone" type="tel" placeholder="業務電話號碼">
+          <input class="portal-input" id="agentLoginPhone" type="tel" placeholder="顧問電話號碼" oninput="this.value=this.value.replace(/\D/g,'')">
           <input class="portal-input" id="agentLoginPwd" type="password" placeholder="密碼" style="margin-top:10px">
           <div class="portal-err" id="agentLoginErr"></div>
-          <button class="portal-btn" onclick="submitAgentLogin()">登入業務帳號</button>
+          <button class="portal-btn" onclick="submitAgentLogin()">登入顧問帳號</button>
         </div>
         <div id="portalAgentDashboard" style="display:none">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -281,7 +282,7 @@
           </div>
           <div class="portal-section-title">最近訂單</div>
           <div id="dashOrders"></div>
-          <button class="portal-btn ghost" style="margin-top:14px" onclick="window.open('agent.html','_blank')">完整業務後台 →</button>
+          <button class="portal-btn ghost" style="margin-top:14px" onclick="window.open('agent' + (agentModeInfo?.code ? '?agent=' + agentModeInfo.code : ''), '_blank')">完整顧問後台 →</button>
         </div>
       </div>
     </div>
@@ -306,9 +307,9 @@
   <footer>
     <p>© 2026 POLA 台灣 &nbsp;·&nbsp; 所有商品均為官方正品</p>
     <p style="margin-top:8px;font-size:10px;color:#bbb">
-      <a href="admin.html" style="color:#999;text-decoration:none">管理後台</a>
+      <a href="admin" style="color:#999;text-decoration:none">管理後台</a>
       &nbsp;·&nbsp;
-      <a href="agent.html" style="color:#999;text-decoration:none">業務後台</a>
+      <a href="agent" style="color:#999;text-decoration:none">顧問後台</a>
       &nbsp;·&nbsp;
       <a href="API.md" style="color:#999;text-decoration:none">API 規格</a>
     </p>
