@@ -1108,6 +1108,21 @@
       <textarea id="prodFootnotes" rows="3" placeholder="*美容成分：保濕成分&#10;*立體美肌：以水潤肌膚呈現立體感"></textarea>
     </div>
 
+    <!-- Variants -->
+    <div style="margin-top:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;color:#444">型號 / 色號</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="prodVariantType" onchange="renderVariantRows()" style="font-size:11px;border:1px solid #ddd;border-radius:6px;padding:4px 8px;font-family:inherit;outline:none">
+            <option value="color">色號型（同價，不同顏色）</option>
+            <option value="size">尺寸型（不同價格/規格）</option>
+          </select>
+          <button type="button" class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="addVariantRow()">+ 新增型號</button>
+        </div>
+      </div>
+      <div id="prodVariantsContainer"></div>
+    </div>
+
     <div style="display:flex;gap:8px;margin-top:20px;align-items:center">
       <button class="btn danger" id="prodDeleteBtn" style="padding:8px 14px" onclick="deleteProduct()">刪除商品</button>
       <div style="flex:1"></div>

@@ -797,21 +797,30 @@ const PRODUCTS = [
     img:"https://www.pola.com.tw/products/3936/k6ts3i000000170h-img/u5r6ih0000002tvk.png",
     url:"https://www.pola.com.tw/products/3936/index.html",
     type:"洗髮精",
-    description:"250 mL  NTD 550（序號 3421）<br>按壓式 550 mL  NTD 1,100（序號 3422）",
+    variants:[
+      {label:"一般瓶 250 mL", code:"3421", price:"NTD 550"},
+      {label:"按壓式 550 mL", code:"3422", price:"NTD 1,100"},
+    ],
   },
   {
     name:"FORM 美顏塑髮潤髮乳（輕盈）", series:"FORM 美顏塑髮", mainCategory:"頭髮護理",
     img:"https://www.pola.com.tw/products/3937/k6ts3i000000175v-img/u5r6ih0000002tvx.png",
     url:"https://www.pola.com.tw/products/3937/index.html",
     type:"護髮乳（潤絲）",
-    description:"240 g  NTD 550（序號 3423）<br>按壓式 540 g  NTD 1,100（序號 3429）",
+    variants:[
+      {label:"一般瓶 240 g", code:"3423", price:"NTD 550"},
+      {label:"按壓式 540 g", code:"3429", price:"NTD 1,100"},
+    ],
   },
   {
     name:"FORM 美顏塑髮潤髮乳（直順）", series:"FORM 美顏塑髮", mainCategory:"頭髮護理",
     img:"https://www.pola.com.tw/products/3938/k6ts3i00000017nc-img/u5r6ih0000002twa.jpg",
     url:"https://www.pola.com.tw/products/3938/index.html",
     type:"護髮乳（潤絲）",
-    description:"240 g  NTD 550（序號 3424）<br>按壓式 540 g  NTD 1,100（序號 3430）",
+    variants:[
+      {label:"一般瓶 240 g", code:"3424", price:"NTD 550"},
+      {label:"按壓式 540 g", code:"3430", price:"NTD 1,100"},
+    ],
   },
   {
     name:"FORM 美顏塑髮活力滋養護髮膜", series:"FORM 美顏塑髮", mainCategory:"頭髮護理",

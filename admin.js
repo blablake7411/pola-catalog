@@ -1235,6 +1235,7 @@ function exportSettlementPDF() {
 
 let adminProducts = [];
 let editingProductName = null;
+let editingVariants = [];
 
 function loadAdminProducts() {
   const overrides = JSON.parse(localStorage.getItem('pola_product_overrides') || '{}');
@@ -1302,6 +1303,9 @@ function openNewProductModal() {
     if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.value = '';
   });
   document.getElementById('prodMainCat').value = '臉部保養';
+  editingVariants = [];
+  document.getElementById('prodVariantType').value = 'color';
+  renderVariantRows();
   previewProdImg('');
   document.getElementById('productModal').classList.add('open');
 }
@@ -1329,6 +1333,12 @@ function openEditProductModal(name) {
   document.getElementById('prodUsage').value = p.usage || '';
   document.getElementById('prodFootnotes').value = (p.footnotes || []).join('\n');
 
+  // Load variants
+  editingVariants = (p.variants || []).map(v => ({ ...v }));
+  const hasPrice = editingVariants.some(v => v.price);
+  document.getElementById('prodVariantType').value = hasPrice ? 'size' : 'color';
+  renderVariantRows();
+
   previewProdImg(p.img || '');
   document.getElementById('productModal').classList.add('open');
 }
@@ -1336,6 +1346,48 @@ function openEditProductModal(name) {
 function closeProductModal() {
   document.getElementById('productModal').classList.remove('open');
   editingProductName = null;
+}
+
+function addVariantRow() {
+  editingVariants.push({ label: '', code: '', price: '', img: '' });
+  renderVariantRows();
+}
+
+function removeVariantRow(idx) {
+  editingVariants.splice(idx, 1);
+  renderVariantRows();
+}
+
+function updateVariantField(idx, field, value) {
+  editingVariants[idx][field] = value;
+}
+
+function renderVariantRows() {
+  const container = document.getElementById('prodVariantsContainer');
+  if (!container) return;
+  const isSize = document.getElementById('prodVariantType')?.value === 'size';
+
+  if (!editingVariants.length) {
+    container.innerHTML = `<div style="font-size:12px;color:#bbb;padding:8px 0">尚無型號，點「+ 新增型號」加入</div>`;
+    return;
+  }
+
+  container.innerHTML = editingVariants.map((v, i) => `
+    <div style="display:grid;grid-template-columns:${isSize ? '1fr 90px 100px' : '1fr 90px'} 1fr 32px;gap:6px;align-items:center;margin-bottom:8px">
+      <input type="text" value="${(v.label||'').replace(/"/g,'&quot;')}" placeholder="型號名稱（例：01 玫紅）"
+        oninput="updateVariantField(${i},'label',this.value)"
+        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
+      <input type="text" value="${(v.code||'').replace(/"/g,'&quot;')}" placeholder="序號"
+        oninput="updateVariantField(${i},'code',this.value)"
+        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
+      ${isSize ? `<input type="text" value="${(v.price||'').replace(/"/g,'&quot;')}" placeholder="NTD 550"
+        oninput="updateVariantField(${i},'price',this.value)"
+        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">` : ''}
+      <input type="text" value="${(v.img||'').replace(/"/g,'&quot;')}" placeholder="圖片 URL（可選）"
+        oninput="updateVariantField(${i},'img',this.value)"
+        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
+      <button onclick="removeVariantRow(${i})" style="background:none;border:none;color:#ccc;font-size:20px;cursor:pointer;padding:0;line-height:1" title="移除">×</button>
+    </div>`).join('');
 }
 
 function previewProdImg(url) {
@@ -1378,6 +1430,19 @@ function saveProduct() {
     usage: document.getElementById('prodUsage').value.trim() || undefined,
     footnotes: footnotesRaw ? footnotesRaw.split('\n').map(s => s.trim()).filter(Boolean) : undefined,
   };
+
+  // Variants: only keep rows with a label
+  const validVariants = editingVariants
+    .filter(v => v.label && v.label.trim())
+    .map(v => {
+      const row = { label: v.label.trim() };
+      if (v.code && v.code.trim()) row.code = v.code.trim();
+      if (v.price && v.price.trim()) row.price = v.price.trim();
+      if (v.img && v.img.trim()) row.img = v.img.trim();
+      return row;
+    });
+  if (validVariants.length > 0) data.variants = validVariants;
+
   Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
   const origName = editingProductName;
