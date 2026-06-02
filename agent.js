@@ -15,6 +15,8 @@ const params = new URLSearchParams(window.location.search);
 let currentAgentCode = params.get('agent') || 'A002';
 let currentAgent = AGENTS.find(a => a.code === currentAgentCode) || AGENTS[1];
 let usingBackend = false;
+let agentOrders = [];  // full order data for drawer
+let agentCode = '';
 
 const now = new Date();
 let currentAgentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -157,43 +159,17 @@ async function tryRenderFromBackend(code) {
     setEl('payDiscount', 'textContent', `${currentRule.discount * 10}折 (−${fmt(retailSum - payable)})`);
     setEl('payTotal', 'textContent', fmt(payable));
 
-    // ── Orders ────────────────────────────────────────────────
-    const orders = data.recent_orders || [];
-    setEl('orderCountSub', 'textContent', `共 ${orderCount} 筆`);
-    const list = document.getElementById('ordersList');
-    if (!orders.length) {
-      list.innerHTML = `<div class="empty">本月還沒有訂單，分享你的專屬連結給客人開始接單！</div>`;
-    } else {
-      list.innerHTML = orders.map(o => {
-        const retail = o.retail_total || 0;
-        const cost = o.agent_cost_total || Math.round(retail * currentRule.discount);
-        const itemsSum = o.items?.length > 0
-          ? (o.items.length === 1 ? o.items[0].product_name : `${o.items[0].product_name} 等 ${o.items.length} 項`)
-          : '—';
-        const customerLine = o.customer_name
-          ? `${o.customer_name}${o.customer_phone ? ' · ' + formatPhone(o.customer_phone) : ''}`
-          : itemsSum;
-        return `
-        <div class="order-card">
-          <div class="order-row1">
-            <div class="order-meta">
-              <span class="num">${o.order_number}</span>
-              <span class="date">${(o.created_at || '').slice(0, 16).replace('T', ' ')}</span>
-              <span class="status ${o.status}">${o.status}</span>
-            </div>
-            <div class="order-amount">
-              <div class="retail mono">原價 ${fmt(retail)}</div>
-              <div class="agent-cost mono">${fmt(cost)}</div>
-            </div>
-          </div>
-          <div class="order-row2">
-            <span class="order-customer">${customerLine}</span>
-            <span class="order-items-sum">${o.customer_name ? itemsSum : ''}</span>
-          </div>
-        </div>`;
-      }).join('');
-    }
+    // ── Orders：fetch full data from orders endpoint ──────────
+    agentCode = code;
+    try {
+      const ordersRes = await fetch(`${SHOP_API_AGENT}/api/agents/${code}/orders?month=${currentAgentMonth}`);
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json();
+        agentOrders = ordersData.items || [];
+      }
+    } catch (e) { agentOrders = []; }
 
+    renderAgentOrders(currentRule);
     await loadGiftRequests(code, currentAgentMonth);
     return true;
   } catch (e) {
@@ -326,7 +302,131 @@ function renderOrders() {
   }).join('');
 }
 
-// ── Drawer ───────────────────────────────────────────────────
+// ── Orders render ─────────────────────────────────────────────
+
+function renderAgentOrders(currentRule) {
+  const count = agentOrders.filter(o => o.status !== '已取消').length;
+  setEl('orderCountSub', 'textContent', `共 ${count} 筆`);
+  const list = document.getElementById('ordersList');
+  if (!agentOrders.length) {
+    list.innerHTML = `<div class="empty">本月還沒有訂單，分享你的專屬連結給客人開始接單！</div>`;
+    return;
+  }
+  const discount = currentRule ? currentRule.discount : 0.8;
+  list.innerHTML = agentOrders.map(o => {
+    const retail = o.retail_total || 0;
+    const cost = o.agent_cost_total || Math.round(retail * discount);
+    const itemsSum = o.items?.length > 0
+      ? (o.items.length === 1 ? o.items[0].product_name : `${o.items[0].product_name} 等 ${o.items.length} 項`)
+      : '—';
+    return `
+    <div class="order-card" onclick="openOrderDrawer('${o.order_number}')" style="cursor:pointer">
+      <div class="order-row1">
+        <div class="order-meta">
+          <span class="num">${o.order_number}</span>
+          <span class="date">${(o.created_at || '').slice(0, 16).replace('T', ' ')}</span>
+          <span class="status ${o.status}">${o.status}</span>
+        </div>
+        <div class="order-amount">
+          <div class="retail mono">原價 ${fmt(retail)}</div>
+          <div class="agent-cost mono">${fmt(cost)}</div>
+        </div>
+      </div>
+      <div class="order-row2">
+        <span class="order-customer">${o.customer_name || '—'}${o.customer_phone ? ' · ' + formatPhone(o.customer_phone) : ''}</span>
+        <span class="order-items-sum">${itemsSum}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Order Drawer ──────────────────────────────────────────────
+
+function openOrderDrawer(orderNumber) {
+  const o = agentOrders.find(x => x.order_number === orderNumber);
+  if (!o) return;
+
+  const canEdit = o.status === '待確認';
+  const itemsHTML = (o.items || []).map(i => `
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
+      <div>
+        ${i.product_code ? `<span style="color:#bbb;font-size:11px;margin-right:4px">${i.product_code}</span>` : ''}${i.product_name}
+        ${i.variant_label ? `<span style="color:#aaa;font-size:11px"> ${i.variant_label}</span>` : ''}
+        <div style="font-size:11px;color:#aaa">x${i.quantity} × NTD ${(i.unit_price||0).toLocaleString()}</div>
+      </div>
+      <div style="font-weight:600;min-width:80px;text-align:right">NTD ${((i.unit_price||0)*(i.quantity||1)).toLocaleString()}</div>
+    </div>`).join('');
+
+  const editSection = canEdit ? `
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #eee">
+      <div style="font-size:11px;color:#aaa;font-weight:600;letter-spacing:.05em;margin-bottom:10px">編輯收件資料 <span style="color:#f59e0b">（待確認可編輯）</span></div>
+      <div style="display:grid;gap:8px">
+        <input id="drawerEditName" type="text" value="${o.customer_name || ''}" placeholder="客人姓名"
+          style="border:1px solid #ddd;border-radius:7px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;box-sizing:border-box">
+        <input id="drawerEditPhone" type="text" value="${o.customer_phone || ''}" placeholder="電話"
+          style="border:1px solid #ddd;border-radius:7px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;box-sizing:border-box">
+        <input id="drawerEditAddress" type="text" value="${o.customer_address || ''}" placeholder="收件地址"
+          style="border:1px solid #ddd;border-radius:7px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;box-sizing:border-box">
+        <textarea id="drawerEditNotes" rows="2" placeholder="備註"
+          style="border:1px solid #ddd;border-radius:7px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;box-sizing:border-box;resize:none">${o.notes || ''}</textarea>
+        <button onclick="saveOrderEdit('${o.order_number}')"
+          style="background:#111;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;width:100%">
+          儲存修改
+        </button>
+      </div>
+    </div>` : `<div style="margin-top:12px;font-size:11px;color:#aaa;text-align:center">訂單已確認，如需修改請聯繫管理人員</div>`;
+
+  document.getElementById('drawerTitle').textContent = `訂單 ${o.order_number}`;
+  document.getElementById('drawerSub').textContent = `${(o.created_at||'').slice(0,16).replace('T',' ')} · ${o.status}`;
+  document.getElementById('drawerBody').innerHTML = `
+    <dl class="info-grid">
+      <dt>客人</dt><dd>${o.customer_name || '—'}</dd>
+      <dt>電話</dt><dd>${formatPhone(o.customer_phone) || '—'}</dd>
+      <dt>地址</dt><dd>${o.customer_address || '—'}</dd>
+      <dt>備註</dt><dd>${o.notes || '—'}</dd>
+    </dl>
+    <div style="font-size:11px;color:#888;letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid #eee">商品明細</div>
+    ${itemsHTML}
+    <div class="breakdown" style="margin-top:12px">
+      <div class="row"><span class="label">原價總額</span><span class="mono">NTD ${(o.retail_total||0).toLocaleString()}</span></div>
+      <div class="row final"><span>你應付公司</span><span class="mono">NTD ${(o.agent_cost_total||0).toLocaleString()}</span></div>
+    </div>
+    ${editSection}`;
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+
+async function saveOrderEdit(orderNumber) {
+  const name = document.getElementById('drawerEditName')?.value.trim();
+  const phone = document.getElementById('drawerEditPhone')?.value.trim();
+  const address = document.getElementById('drawerEditAddress')?.value.trim();
+  const notes = document.getElementById('drawerEditNotes')?.value.trim();
+
+  if (!name) { alert('客人姓名不可空白'); return; }
+
+  try {
+    const res = await fetch(`${SHOP_API_AGENT}/api/agents/${agentCode}/orders/${orderNumber}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_name: name, customer_phone: phone || null, customer_address: address || null, notes: notes || null }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || '儲存失敗');
+      return;
+    }
+    const updated = await res.json();
+    const idx = agentOrders.findIndex(o => o.order_number === orderNumber);
+    if (idx !== -1) agentOrders[idx] = updated;
+    closeDrawer();
+    renderAgentOrders(null);
+  } catch (e) {
+    alert('網路錯誤，請稍後再試');
+  }
+}
+
+// ── Old Drawer (mock data, kept for compatibility) ─────────────
 function openDrawer(orderNumber) {
   const o = ORDERS.find(x => x.orderNumber === orderNumber);
   if (!o) return;

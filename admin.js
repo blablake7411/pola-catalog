@@ -22,6 +22,7 @@ function formatPhone(phone) {
 
 let ORDERS = [], AGENTS = [], CUSTOMERS = [], GIFT_REQUESTS = [];
 let editAllProducts = [];
+let dateRangeStart = '', dateRangeEnd = '';
 let kpiData = null;
 let currentView = 'orders';
 let selectedOrderId = null;
@@ -59,9 +60,16 @@ function createdAtFmt(iso) {
 
 // ── Load data from API ────────────────────────────────────────
 
+function ordersApiUrl() {
+  if (dateRangeStart && dateRangeEnd) {
+    return `/api/admin/orders?start_date=${dateRangeStart}&end_date=${dateRangeEnd}`;
+  }
+  return `/api/admin/orders?month=${currentMonth}`;
+}
+
 async function loadData() {
   const [ordersRes, agentsRes, kpiRes, customersRes] = await Promise.all([
-    apiFetch(`/api/admin/orders?month=${currentMonth}`),
+    apiFetch(ordersApiUrl()),
     apiFetch(`/api/admin/agents?month=${currentMonth}`),
     apiFetch(`/api/admin/dashboard/kpi?month=${currentMonth}`),
     apiFetch(`/api/admin/customers`),
@@ -70,6 +78,20 @@ async function loadData() {
   AGENTS = agentsRes;
   kpiData = kpiRes;
   CUSTOMERS = customersRes;
+  updateMonthDisplay();
+}
+
+function updateMonthDisplay() {
+  const el = document.getElementById('currentMonthLabel');
+  if (!el) return;
+  if (dateRangeStart && dateRangeEnd) {
+    el.textContent = `${dateRangeStart} ～ ${dateRangeEnd}`;
+    el.style.color = '#f59e0b';
+  } else {
+    const [y, m] = currentMonth.split('-');
+    el.textContent = `${y} 年 ${parseInt(m)} 月`;
+    el.style.color = '';
+  }
 }
 
 // ── Init ─────────────────────────────────────────────────────
@@ -107,6 +129,7 @@ async function init() {
   document.getElementById('agentFilter').addEventListener('change', renderOrders);
   document.getElementById('agentSearch').addEventListener('input', renderAgents);
 
+  updateMonthDisplay();
   renderKPIs();
   renderOrders();
   renderAgents();
@@ -303,14 +326,7 @@ function renderAgents() {
   const tbody = document.getElementById('agentsTbody');
 
   let list = AGENTS.slice();
-  // owner 排最前，其餘維持原順序
-  list.sort((a, b) => {
-    const aOwner = a.agent_type === 'owner' || (a.discount_rate != null && a.discount_rate <= 0.60);
-    const bOwner = b.agent_type === 'owner' || (b.discount_rate != null && b.discount_rate <= 0.60);
-    if (aOwner && !bOwner) return -1;
-    if (!aOwner && bOwner) return 1;
-    return 0;
-  });
+  list.sort((a, b) => a.code.localeCompare(b.code));
   if (search) {
     list = list.filter(a =>
       a.name.toLowerCase().includes(search) ||
@@ -655,6 +671,12 @@ async function deleteCustomer(phone, name) {
 async function changeMonth(val) {
   if (!val) return;
   currentMonth = val;
+  dateRangeStart = '';
+  dateRangeEnd = '';
+  const s = document.getElementById('dateStart');
+  const e = document.getElementById('dateEnd');
+  if (s) s.value = '';
+  if (e) e.value = '';
   await loadData();
   renderKPIs();
   renderOrders();
@@ -662,6 +684,31 @@ async function changeMonth(val) {
   renderReport();
   renderSettlement();
   updatePendingBadge();
+}
+
+async function applyDateRange() {
+  const s = document.getElementById('dateStart')?.value;
+  const e = document.getElementById('dateEnd')?.value;
+  if (!s || !e) { alert('請選擇開始和結束日期'); return; }
+  if (s > e) { alert('開始日期不可晚於結束日期'); return; }
+  dateRangeStart = s;
+  dateRangeEnd = e;
+  currentMonth = s.slice(0, 7);
+  await loadData();
+  renderKPIs();
+  renderOrders();
+  updatePendingBadge();
+}
+
+function clearDateRange() {
+  dateRangeStart = '';
+  dateRangeEnd = '';
+  const s = document.getElementById('dateStart');
+  const e = document.getElementById('dateEnd');
+  if (s) s.value = '';
+  if (e) e.value = '';
+  updateMonthDisplay();
+  loadData().then(() => { renderKPIs(); renderOrders(); updatePendingBadge(); });
 }
 
 // ── PDF 列印通用函式 ──────────────────────────────────────────
@@ -848,7 +895,8 @@ function openEditCustomerModal() {
     agentSel.appendChild(opt);
   });
 
-  editAllProducts = (PRODUCTS || []).map(p => ({
+  loadAdminProducts();
+  editAllProducts = adminProducts.map(p => ({
     name: p.name,
     code: p.code || '',
     price: parseInt((p.price || '').replace(/[^0-9]/g, '')) || 0,

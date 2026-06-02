@@ -546,12 +546,19 @@
     <span class="sub">管理後台</span>
   </div>
   <div class="topbar-right">
+    <span id="currentMonthLabel" style="font-size:15px;font-weight:700;color:#fff;letter-spacing:.02em;min-width:100px;text-align:right"></span>
     <select id="monthInput" class="month-pill" onchange="changeMonth(this.value)"></select>
-    <span>·</span>
-    <span>老闆</span>
     <span>·</span>
     <a href="index.html">← 客人目錄</a>
   </div>
+</div>
+<div id="dateRangeBar" style="background:#1a1a1a;border-bottom:1px solid #2a2a2a;padding:8px 20px;display:flex;align-items:center;gap:10px;font-size:12px;color:#aaa">
+  <span style="color:#666">自訂日期：</span>
+  <input type="date" id="dateStart" style="background:#222;color:#fff;border:1px solid #333;border-radius:6px;padding:5px 9px;font-size:12px;font-family:inherit;outline:none;color-scheme:dark">
+  <span style="color:#555">～</span>
+  <input type="date" id="dateEnd" style="background:#222;color:#fff;border:1px solid #333;border-radius:6px;padding:5px 9px;font-size:12px;font-family:inherit;outline:none;color-scheme:dark">
+  <button onclick="applyDateRange()" style="background:#f59e0b;color:#000;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">套用</button>
+  <button onclick="clearDateRange()" style="background:none;color:#888;border:1px solid #333;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">清除</button>
 </div>
 
 <div class="shell">
