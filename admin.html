@@ -1146,10 +1146,14 @@
 
     <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:16px 0 8px">商品明細</div>
     <div id="editOrderItems"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
-      <select id="editNewProduct" style="flex:1;border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none"></select>
-      <input type="number" id="editNewQty" value="1" min="1" style="width:54px;border:1px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;text-align:center;font-family:inherit;outline:none">
-      <button class="btn ghost" style="white-space:nowrap;padding:7px 14px" onclick="addEditItem()">+ 加入</button>
+    <div style="margin-top:10px">
+      <input id="editProductSearch" type="text" placeholder="輸入商品名稱或代碼搜尋…" oninput="filterEditProducts(this.value)"
+        style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:6px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="editNewProduct" style="flex:1;border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none"></select>
+        <input type="number" id="editNewQty" value="1" min="1" style="width:54px;border:1px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;text-align:center;font-family:inherit;outline:none">
+        <button class="btn ghost" style="white-space:nowrap;padding:7px 14px" onclick="addEditItem()">+ 加入</button>
+      </div>
     </div>
     <div id="editOrderTotal" style="margin-top:12px;font-size:13px;text-align:right;color:#444;font-weight:500"></div>
 

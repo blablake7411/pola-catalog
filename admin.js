@@ -21,6 +21,7 @@ function formatPhone(phone) {
 }
 
 let ORDERS = [], AGENTS = [], CUSTOMERS = [], GIFT_REQUESTS = [];
+let editAllProducts = [];
 let kpiData = null;
 let currentView = 'orders';
 let selectedOrderId = null;
@@ -302,6 +303,14 @@ function renderAgents() {
   const tbody = document.getElementById('agentsTbody');
 
   let list = AGENTS.slice();
+  // owner 排最前，其餘維持原順序
+  list.sort((a, b) => {
+    const aOwner = a.agent_type === 'owner' || (a.discount_rate != null && a.discount_rate <= 0.60);
+    const bOwner = b.agent_type === 'owner' || (b.discount_rate != null && b.discount_rate <= 0.60);
+    if (aOwner && !bOwner) return -1;
+    if (!aOwner && bOwner) return 1;
+    return 0;
+  });
   if (search) {
     list = list.filter(a =>
       a.name.toLowerCase().includes(search) ||
@@ -313,19 +322,23 @@ function renderAgents() {
     const s = a.monthly_stats || {};
     const retail = s.retail_sum || 0;
 
-    // ── 老闆特殊顯示（agent_type = 'owner' 或 discount_rate <= 0.6）──────
+    // ── 6折特殊顯示（agent_type = 'owner'）：等級空白，排最前 ──────
     const isOwner = a.agent_type === 'owner' || (a.discount_rate != null && a.discount_rate <= 0.60);
     if (isOwner) {
       return `<tr>
         <td><strong>${a.name}</strong><br><span style="font-size:11px;color:#888">${formatPhone(a.phone) || '—'}</span></td>
         <td class="mono">${a.code}</td>
-        <td><span style="background:#111;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:1px">老闆</span></td>
+        <td></td>
         <td class="mono">6折</td>
-        <td style="font-size:12px;color:#aaa">直接與廠商結款</td>
+        <td style="font-size:12px;color:#aaa">—</td>
         <td class="num">${s.order_count || 0}</td>
         <td class="num mono">${fmt(s.agent_cost_sum || 0)}</td>
         <td class="num mono" style="color:#19884a">${fmt(s.your_profit_sum || 0)}</td>
-        <td><button class="btn ghost sm" onclick="openEditAgentModal('${a.code}')">編輯</button></td>
+        <td class="num mono" style="color:#d97706">${s.gift_total_sum > 0 ? fmt(s.gift_total_sum) : '—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn ghost sm" onclick="openEditAgentModal('${a.code}')">編輯</button>
+          <button class="btn ghost sm" style="margin-top:4px" onclick="window.open('agent?agent=${a.code}','_blank')">後台</button>
+        </td>
       </tr>`;
     }
 
@@ -835,19 +848,15 @@ function openEditCustomerModal() {
     agentSel.appendChild(opt);
   });
 
-  const prodSel = document.getElementById('editNewProduct');
-  prodSel.innerHTML = '<option value="">選擇商品…</option>';
-  (PRODUCTS || []).forEach(p => {
-    const unitPrice = parseInt((p.price || '').replace(/[^0-9]/g, '')) || 0;
-    const opt = document.createElement('option');
-    opt.value = p.code || p.name;
-    opt.textContent = `${p.code ? p.code + ' ' : ''}${p.name}  NTD ${unitPrice.toLocaleString()}`;
-    opt.dataset.name = p.name;
-    opt.dataset.price = unitPrice;
-    opt.dataset.series = p.series || '';
-    opt.dataset.code = p.code || '';
-    prodSel.appendChild(opt);
-  });
+  editAllProducts = (PRODUCTS || []).map(p => ({
+    name: p.name,
+    code: p.code || '',
+    price: parseInt((p.price || '').replace(/[^0-9]/g, '')) || 0,
+    series: p.series || '',
+  }));
+  const searchEl = document.getElementById('editProductSearch');
+  if (searchEl) searchEl.value = '';
+  fillEditProductSelect('');
 
   editItems = (o.items || []).map(i => ({ ...i }));
   renderEditItems();
@@ -857,6 +866,30 @@ function openEditCustomerModal() {
 
 function closeEditCustomerModal() {
   document.getElementById('editCustomerModal').classList.remove('open');
+}
+
+function fillEditProductSelect(query) {
+  const q = query.toLowerCase().trim();
+  const filtered = q
+    ? editAllProducts.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.code.toLowerCase().includes(q)
+      )
+    : editAllProducts;
+  const prodSel = document.getElementById('editNewProduct');
+  prodSel.innerHTML = '<option value="">選擇商品…</option>' +
+    filtered.map(p =>
+      `<option value="${(p.code || p.name).replace(/"/g,'&quot;')}"
+        data-name="${p.name.replace(/"/g,'&quot;')}"
+        data-price="${p.price}"
+        data-series="${p.series.replace(/"/g,'&quot;')}"
+        data-code="${p.code.replace(/"/g,'&quot;')}"
+        >${p.code ? p.code + ' ' : ''}${p.name} NTD ${p.price.toLocaleString()}</option>`
+    ).join('');
+}
+
+function filterEditProducts(query) {
+  fillEditProductSelect(query);
 }
 
 function renderEditItems() {
