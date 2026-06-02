@@ -279,6 +279,32 @@
     .payable-row.total { font-size: 14px; }
     .order-amount .agent-cost { font-size: 13px; }
   }
+
+  /* Gift section */
+  .btn-new-gift { background:#111; color:#fff; border:none; border-radius:8px; padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .gift-stats { display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .gift-stat-card { flex:1; min-width:120px; background:#fff; border:1px solid #eee; border-radius:12px; padding:12px 14px; }
+  .gift-stat-card .label { font-size:11px; color:#aaa; margin-bottom:4px; }
+  .gift-stat-card .value { font-size:18px; font-weight:700; color:#111; font-variant-numeric:tabular-nums; }
+  .gift-card { background:#fff; border:1px solid #eee; border-radius:12px; padding:14px 16px; margin-bottom:8px; }
+  .gift-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+  .gift-card-name { font-weight:600; font-size:14px; }
+  .gift-card-addr { font-size:11px; color:#888; margin-top:2px; }
+  .gift-status { font-size:11px; font-weight:600; padding:2px 10px; border-radius:20px; }
+  .gift-status.待處理 { background:#fef9c3; color:#854d0e; }
+  .gift-status.已完成 { background:#dcfce7; color:#166534; }
+  .gift-status.已取消 { background:#f1f5f9; color:#94a3b8; }
+  .gift-items-summary { font-size:12px; color:#555; }
+  .gift-total-line { font-size:12px; color:#888; margin-top:4px; }
+  .field-group { margin-bottom:12px; }
+  .field-group label { display:block; font-size:12px; color:#888; margin-bottom:5px; font-weight:500; }
+  .field-input { width:100%; border:1px solid #ddd; border-radius:8px; padding:9px 11px; font-size:13px; font-family:inherit; outline:none; box-sizing:border-box; }
+  .field-input:focus { border-color:#111; }
+  .gift-item-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .gift-item-row input { border:1px solid #ddd; border-radius:7px; padding:7px 9px; font-size:12px; font-family:inherit; outline:none; }
+  .gift-item-row input:focus { border-color:#111; }
+  .gift-item-remove { background:none; border:none; color:#ccc; font-size:18px; cursor:pointer; padding:0 4px; }
+  .gift-item-remove:hover { color:#e55; }
 </style>
 </head>
 <body>
@@ -370,6 +396,48 @@
     </div>
     <div class="orders-list" id="ordersList"></div>
   </section>
+
+  <!-- Gift Requests -->
+  <section id="giftSection">
+    <div class="section-title">
+      <h2>滿額贈品申請</h2>
+      <button class="btn-new-gift" onclick="openGiftModal()">+ 新增申請</button>
+    </div>
+    <div class="gift-stats" id="giftStats"></div>
+    <div class="gift-list" id="giftList"></div>
+  </section>
+</div>
+
+<!-- Gift Request Modal -->
+<div class="drawer-overlay" id="giftOverlay" onclick="closeGiftModal()"></div>
+<div class="drawer" id="giftDrawer" style="max-width:480px">
+  <div class="drawer-header">
+    <div><h2>新增贈品申請</h2></div>
+    <button class="drawer-close" onclick="closeGiftModal()">×</button>
+  </div>
+  <div class="drawer-body" id="giftDrawerBody">
+    <div class="field-group">
+      <label>客人姓名</label>
+      <input id="giftCustomerName" type="text" placeholder="王小美" class="field-input">
+    </div>
+    <div class="field-group">
+      <label>收件地址</label>
+      <input id="giftCustomerAddress" type="text" placeholder="台北市中山區..." class="field-input">
+    </div>
+    <div class="field-group">
+      <label>客人消費原價總額 <span style="font-size:11px;color:#aaa">（決定可換贈品上限）</span></label>
+      <input id="giftEligibleAmount" type="number" placeholder="60000" class="field-input">
+    </div>
+    <div style="margin:16px 0 8px;font-size:12px;font-weight:600;color:#888;letter-spacing:.05em;text-transform:uppercase">贈品明細</div>
+    <div id="giftItemsContainer"></div>
+    <button onclick="addGiftItem()" style="font-size:12px;color:#555;background:none;border:1px dashed #ccc;border-radius:8px;padding:7px 14px;cursor:pointer;width:100%;margin-top:6px">+ 加入贈品</button>
+    <div id="giftTotalLine" style="margin-top:12px;font-size:13px;text-align:right;color:#444;font-weight:500"></div>
+    <div class="field-group" style="margin-top:12px">
+      <label>備註 <span style="font-size:11px;color:#aaa">（選填）</span></label>
+      <textarea id="giftNotes" rows="2" class="field-input" style="resize:none"></textarea>
+    </div>
+    <button onclick="submitGiftRequest()" style="width:100%;margin-top:16px;background:#111;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">送出申請</button>
+  </div>
 </div>
 
 <!-- Order Detail Drawer -->

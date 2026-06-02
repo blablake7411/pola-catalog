@@ -20,7 +20,7 @@ function formatPhone(phone) {
   return phone;
 }
 
-let ORDERS = [], AGENTS = [], CUSTOMERS = [];
+let ORDERS = [], AGENTS = [], CUSTOMERS = [], GIFT_REQUESTS = [];
 let kpiData = null;
 let currentView = 'orders';
 let selectedOrderId = null;
@@ -112,6 +112,7 @@ async function init() {
   renderReport();
   renderCustomers();
   updatePendingBadge();
+  loadGifts();
 }
 
 function switchView(view) {
@@ -119,12 +120,13 @@ function switchView(view) {
   document.querySelectorAll('.sidenav button').forEach(b => {
     b.classList.toggle('active', b.dataset.view === view);
   });
-  ['orders', 'agents', 'report', 'products', 'customers', 'settlement'].forEach(v => {
+  ['orders', 'agents', 'report', 'products', 'customers', 'settlement', 'gifts'].forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) el.classList.toggle('hidden', v !== view);
   });
   if (view === 'products') renderProductList();
   if (view === 'settlement') renderSettlement();
+  if (view === 'gifts') loadGifts();
 }
 
 function updatePendingBadge() {
@@ -380,6 +382,7 @@ function renderAgents() {
       <td class="num">${s.order_count || 0}</td>
       <td class="num mono">${fmt(s.agent_cost_sum || 0)}</td>
       <td class="num mono" style="color:#19884a">${fmt(s.your_profit_sum || 0)}</td>
+      <td class="num mono" style="color:#d97706">${s.gift_total_sum > 0 ? fmt(s.gift_total_sum) : '—'}</td>
       <td style="white-space:nowrap">
         <button class="btn ghost sm" onclick="openEditAgentModal('${a.code}')">編輯</button>
         <button class="btn ghost sm" style="margin-top:4px" onclick="window.open('agent?agent=${a.code}','_blank')">後台</button>
@@ -1286,6 +1289,86 @@ function deleteProduct() {
 
   closeProductModal();
   renderProductList();
+}
+
+// ── Gift Requests ─────────────────────────────────────────────
+
+async function loadGifts() {
+  const statusFilter = document.getElementById('giftStatusFilter')?.value || '';
+  let url = `/api/admin/gift-requests?month=${currentMonth}`;
+  if (statusFilter) url += `&status=${encodeURIComponent(statusFilter)}`;
+  try {
+    const data = await apiFetch(url);
+    GIFT_REQUESTS = data.items || [];
+    renderGiftStats(data);
+    renderGiftTable(GIFT_REQUESTS);
+    updateGiftBadge();
+  } catch (e) {
+    console.error('[gifts] loadGifts error:', e);
+  }
+}
+
+function renderGiftStats(data) {
+  const pending = (data.items || []).filter(r => r.status === '待處理').length;
+  const el = id => document.getElementById(id);
+  if (el('giftStatCount')) el('giftStatCount').textContent = data.request_count ?? '—';
+  if (el('giftStatTotal')) el('giftStatTotal').textContent = fmt(data.gift_total_sum);
+  if (el('giftStatPending')) el('giftStatPending').textContent = pending;
+}
+
+function renderGiftTable(items) {
+  const tbody = document.getElementById('giftsTbody');
+  if (!tbody) return;
+  if (!items.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#aaa;padding:24px">本月沒有贈品申請</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = items.map(r => {
+    const giftSummary = r.gift_items.map(i =>
+      `${i.product_code ? `<span style="color:#aaa;font-size:10px">${i.product_code}</span> ` : ''}${i.product_name}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`
+    ).join('<br>');
+    const dateStr = r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : '—';
+    const statusClass = { '待處理': 'amber', '已完成': 'green', '已取消': 'gray' }[r.status] || 'gray';
+    const statusColor = { '待處理': '#d97706', '已完成': '#16a34a', '已取消': '#94a3b8' }[r.status] || '#888';
+    return `<tr>
+      <td style="font-size:11px;color:#888">${dateStr}</td>
+      <td>${r.agent_name || r.agent_code}</td>
+      <td><strong>${r.customer_name}</strong></td>
+      <td style="font-size:12px;color:#666;max-width:140px">${r.customer_address}</td>
+      <td style="font-size:12px;line-height:1.6">${giftSummary}</td>
+      <td class="num mono">${fmt(r.eligible_amount)}</td>
+      <td class="num mono">${fmt(r.gift_total)}</td>
+      <td><span style="font-size:11px;font-weight:600;color:${statusColor}">${r.status}</span></td>
+      <td>
+        <select onchange="updateGiftStatus(${r.id}, this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:6px;padding:4px 7px;font-family:inherit;outline:none;background:#fff">
+          <option value="待處理" ${r.status === '待處理' ? 'selected' : ''}>待處理</option>
+          <option value="已完成" ${r.status === '已完成' ? 'selected' : ''}>已完成</option>
+          <option value="已取消" ${r.status === '已取消' ? 'selected' : ''}>已取消</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function updateGiftStatus(id, status) {
+  try {
+    await apiFetch(`/api/admin/gift-requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    await loadGifts();
+  } catch (e) {
+    alert('更新失敗');
+  }
+}
+
+function updateGiftBadge() {
+  const pending = GIFT_REQUESTS.filter(r => r.status === '待處理').length;
+  const badge = document.getElementById('giftBadge');
+  if (badge) {
+    badge.textContent = pending;
+    badge.style.display = pending > 0 ? '' : 'none';
+  }
 }
 
 init();

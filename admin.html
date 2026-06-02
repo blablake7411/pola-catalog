@@ -559,6 +559,7 @@
     <button class="active" data-view="orders">訂單管理 <span class="badge" id="pendingBadge"></span></button>
     <button data-view="settlement">月結交點</button>
     <button data-view="agents">顧問管理</button>
+    <button data-view="gifts">贈品申請 <span class="badge" id="giftBadge"></span></button>
     <button data-view="customers">客人管理</button>
     <button data-view="report">月結報表</button>
     <button data-view="products">商品管理</button>
@@ -651,6 +652,7 @@
               <th class="num">本月訂單</th>
               <th class="num">本月實收</th>
               <th class="num">毛利貢獻</th>
+              <th class="num">本月贈品</th>
               <th></th>
             </tr>
           </thead>
@@ -681,6 +683,58 @@
           </tbody>
         </table>
         <p style="font-size:11px;color:#999;margin-top:10px">折扣資格保留最多 3 個月，3 個月內任一月達標即維持等級。</p>
+      </div>
+    </section>
+
+    <!-- ─── Gifts View ───────────────────────────────── -->
+    <section id="view-gifts" class="hidden">
+      <h1 class="page-title">贈品申請</h1>
+      <p class="page-sub">顧問為客人提交的滿額贈品兌換申請。</p>
+
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-label">本月申請件數</div>
+          <div class="stat-value" id="giftStatCount">—</div>
+          <div class="stat-sub">件</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">本月兌換總值</div>
+          <div class="stat-value" id="giftStatTotal">—</div>
+          <div class="stat-sub">原價</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">待處理</div>
+          <div class="stat-value" id="giftStatPending" style="color:#d97706">—</div>
+          <div class="stat-sub">件</div>
+        </div>
+      </div>
+
+      <div class="filter-bar" style="margin-bottom:16px">
+        <select id="giftStatusFilter" onchange="loadGifts()" style="border:1px solid #ddd;border-radius:8px;padding:7px 12px;font-size:13px;font-family:inherit;outline:none;background:#fff">
+          <option value="">全部狀態</option>
+          <option value="待處理">待處理</option>
+          <option value="已完成">已完成</option>
+          <option value="已取消">已取消</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>提交時間</th>
+              <th>顧問</th>
+              <th>客人</th>
+              <th>收件地址</th>
+              <th>贈品內容</th>
+              <th class="num">消費原價</th>
+              <th class="num">兌換總值</th>
+              <th>狀態</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="giftsTbody"></tbody>
+        </table>
       </div>
     </section>
 

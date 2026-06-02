@@ -194,6 +194,7 @@ async function tryRenderFromBackend(code) {
       }).join('');
     }
 
+    await loadGiftRequests(code, currentAgentMonth);
     return true;
   } catch (e) {
     console.error('[agent] tryRenderFromBackend error:', e);
@@ -381,6 +382,160 @@ function openDrawer(orderNumber) {
 function closeDrawer() {
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+// ── Gift Requests ─────────────────────────────────────────────
+
+let giftItems = [];
+
+function fmt2(n) { return 'NTD ' + Math.round(n || 0).toLocaleString(); }
+
+async function loadGiftRequests(code, month) {
+  try {
+    const url = month
+      ? `${SHOP_API_AGENT}/api/agents/${code}/gift-requests?month=${month}`
+      : `${SHOP_API_AGENT}/api/agents/${code}/gift-requests`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    renderGiftStats(data.gift_total_sum || 0, data.request_count || 0);
+    renderGiftList(data.items || []);
+  } catch (e) {
+    console.error('[gift] loadGiftRequests error:', e);
+  }
+}
+
+function renderGiftStats(totalSum, count) {
+  document.getElementById('giftStats').innerHTML = `
+    <div class="gift-stat-card">
+      <div class="label">本月兌換件數</div>
+      <div class="value">${count} 件</div>
+    </div>
+    <div class="gift-stat-card">
+      <div class="label">本月兌換總值</div>
+      <div class="value mono">${fmt2(totalSum)}</div>
+    </div>`;
+}
+
+function renderGiftList(items) {
+  const el = document.getElementById('giftList');
+  if (!items.length) {
+    el.innerHTML = `<div style="font-size:13px;color:#aaa;text-align:center;padding:20px 0">本月還沒有贈品申請</div>`;
+    return;
+  }
+  el.innerHTML = items.map(r => {
+    const giftSummary = r.gift_items.map(i =>
+      `${i.product_name}${i.quantity > 1 ? ' ×' + i.quantity : ''}`
+    ).join('、');
+    return `
+    <div class="gift-card">
+      <div class="gift-card-top">
+        <div>
+          <div class="gift-card-name">${r.customer_name}</div>
+          <div class="gift-card-addr">${r.customer_address}</div>
+        </div>
+        <span class="gift-status ${r.status}">${r.status}</span>
+      </div>
+      <div class="gift-items-summary">${giftSummary}</div>
+      <div class="gift-total-line">兌換總值 ${fmt2(r.gift_total)} · 消費原價 ${fmt2(r.eligible_amount)}</div>
+      ${r.notes ? `<div style="font-size:11px;color:#aaa;margin-top:4px">備註：${r.notes}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function openGiftModal() {
+  giftItems = [];
+  document.getElementById('giftCustomerName').value = '';
+  document.getElementById('giftCustomerAddress').value = '';
+  document.getElementById('giftEligibleAmount').value = '';
+  document.getElementById('giftNotes').value = '';
+  renderGiftItemRows();
+  addGiftItem();
+  document.getElementById('giftDrawer').classList.add('open');
+  document.getElementById('giftOverlay').classList.add('open');
+}
+
+function closeGiftModal() {
+  document.getElementById('giftDrawer').classList.remove('open');
+  document.getElementById('giftOverlay').classList.remove('open');
+}
+
+function addGiftItem() {
+  giftItems.push({ product_code: '', product_name: '', unit_value: '', quantity: 1 });
+  renderGiftItemRows();
+}
+
+function removeGiftItem(idx) {
+  giftItems.splice(idx, 1);
+  renderGiftItemRows();
+}
+
+function updateGiftItem(idx, field, value) {
+  giftItems[idx][field] = field === 'unit_value' || field === 'quantity' ? Number(value) : value;
+  updateGiftTotalLine();
+}
+
+function renderGiftItemRows() {
+  document.getElementById('giftItemsContainer').innerHTML = giftItems.map((item, i) => `
+    <div class="gift-item-row">
+      <input type="text" placeholder="商品代碼" value="${item.product_code}" oninput="updateGiftItem(${i},'product_code',this.value)" style="width:90px">
+      <input type="text" placeholder="贈品名稱" value="${item.product_name}" oninput="updateGiftItem(${i},'product_name',this.value)" style="flex:1">
+      <input type="number" placeholder="單價" value="${item.unit_value || ''}" oninput="updateGiftItem(${i},'unit_value',this.value)" style="width:80px">
+      <input type="number" min="1" value="${item.quantity}" oninput="updateGiftItem(${i},'quantity',this.value)" style="width:50px">
+      <button class="gift-item-remove" onclick="removeGiftItem(${i})">×</button>
+    </div>`).join('');
+  updateGiftTotalLine();
+}
+
+function updateGiftTotalLine() {
+  const total = giftItems.reduce((s, i) => s + (Number(i.unit_value) || 0) * (Number(i.quantity) || 1), 0);
+  const eligible = Number(document.getElementById('giftEligibleAmount').value) || 0;
+  const color = eligible > 0 && total > eligible ? '#e55' : '#444';
+  document.getElementById('giftTotalLine').innerHTML =
+    `贈品總值：<strong style="color:${color}">${fmt2(total)}</strong>` +
+    (eligible > 0 ? ` / 上限 ${fmt2(eligible)}` : '');
+}
+
+async function submitGiftRequest() {
+  const code = params.get('agent');
+  if (!code) return;
+
+  const customerName = document.getElementById('giftCustomerName').value.trim();
+  const customerAddress = document.getElementById('giftCustomerAddress').value.trim();
+  const eligibleAmount = Number(document.getElementById('giftEligibleAmount').value);
+  const notes = document.getElementById('giftNotes').value.trim();
+
+  if (!customerName || !customerAddress) { alert('請填寫客人姓名與收件地址'); return; }
+  if (!eligibleAmount) { alert('請填寫客人消費原價總額'); return; }
+
+  const validItems = giftItems.filter(i => i.product_name && i.unit_value > 0);
+  if (!validItems.length) { alert('請至少加入一項贈品（需填寫名稱和單價）'); return; }
+
+  const giftTotal = validItems.reduce((s, i) => s + i.unit_value * (i.quantity || 1), 0);
+  if (giftTotal > eligibleAmount) { alert(`贈品總值 ${fmt2(giftTotal)} 超過消費上限 ${fmt2(eligibleAmount)}`); return; }
+
+  try {
+    const res = await fetch(`${SHOP_API_AGENT}/api/agents/${code}/gift-requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_name: customerName,
+        customer_address: customerAddress,
+        eligible_amount: eligibleAmount,
+        gift_items: validItems,
+        notes: notes || null,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || '送出失敗');
+      return;
+    }
+    closeGiftModal();
+    await loadGiftRequests(code, currentAgentMonth);
+  } catch (e) {
+    alert('網路錯誤，請稍後再試');
+  }
 }
 
 init();
