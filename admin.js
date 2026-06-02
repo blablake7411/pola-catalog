@@ -887,6 +887,8 @@ function openEditCustomerModal() {
   document.getElementById('editCustAddress').value = o.customer_address || '';
   document.getElementById('editCustNotes').value = o.notes || '';
   document.getElementById('editCustPayment').value = o.payment_method || '';
+  const dateEl = document.getElementById('editOrderDate');
+  if (dateEl) dateEl.value = (o.created_at || '').slice(0, 10);
 
   const agentSel = document.getElementById('editCustAgent');
   agentSel.innerHTML = '<option value="">未指定</option>';
@@ -1025,6 +1027,7 @@ async function saveEditCustomer() {
     notes: document.getElementById('editCustNotes').value.trim(),
     payment_method: document.getElementById('editCustPayment').value.trim(),
     agent_code: document.getElementById('editCustAgent').value || null,
+    order_date: document.getElementById('editOrderDate')?.value || null,
     discount_amount: parseInt(document.getElementById('editDiscount')?.value) || 0,
     shipping_fee: parseInt(document.getElementById('editShipping')?.value) || 0,
     items: editItems.map(i => ({
