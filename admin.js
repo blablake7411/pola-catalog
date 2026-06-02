@@ -1372,22 +1372,48 @@ function renderVariantRows() {
     return;
   }
 
-  container.innerHTML = editingVariants.map((v, i) => `
-    <div style="display:grid;grid-template-columns:${isSize ? '1fr 90px 100px' : '1fr 90px'} 1fr 32px;gap:6px;align-items:center;margin-bottom:8px">
-      <input type="text" value="${(v.label||'').replace(/"/g,'&quot;')}" placeholder="型號名稱（例：01 玫紅）"
-        oninput="updateVariantField(${i},'label',this.value)"
-        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
-      <input type="text" value="${(v.code||'').replace(/"/g,'&quot;')}" placeholder="序號"
-        oninput="updateVariantField(${i},'code',this.value)"
-        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
-      ${isSize ? `<input type="text" value="${(v.price||'').replace(/"/g,'&quot;')}" placeholder="NTD 550"
-        oninput="updateVariantField(${i},'price',this.value)"
-        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">` : ''}
-      <input type="text" value="${(v.img||'').replace(/"/g,'&quot;')}" placeholder="圖片 URL（可選）"
-        oninput="updateVariantField(${i},'img',this.value)"
-        style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
-      <button onclick="removeVariantRow(${i})" style="background:none;border:none;color:#ccc;font-size:20px;cursor:pointer;padding:0;line-height:1" title="移除">×</button>
-    </div>`).join('');
+  container.innerHTML = editingVariants.map((v, i) => {
+    const imgSrc = v.img || '';
+    const hasImg = !!imgSrc;
+    return `
+    <div style="background:#fafafa;border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 90px${isSize ? ' 100px' : ''};gap:6px;margin-bottom:8px">
+        <input type="text" value="${(v.label||'').replace(/"/g,'&quot;')}" placeholder="型號名稱（例：01 玫紅）"
+          oninput="updateVariantField(${i},'label',this.value)"
+          style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
+        <input type="text" value="${(v.code||'').replace(/"/g,'&quot;')}" placeholder="序號"
+          oninput="updateVariantField(${i},'code',this.value)"
+          style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">
+        ${isSize ? `<input type="text" value="${(v.price||'').replace(/"/g,'&quot;')}" placeholder="NTD 550"
+          oninput="updateVariantField(${i},'price',this.value)"
+          style="border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none">` : ''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${hasImg ? `<img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #eee;flex-shrink:0" onerror="this.style.display='none'">` : `<div style="width:40px;height:40px;background:#f0f0f0;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#bbb">無圖</div>`}
+        <input type="text" value="${imgSrc.startsWith('data:') ? '' : imgSrc.replace(/"/g,'&quot;')}"
+          placeholder="貼上圖片 URL"
+          oninput="updateVariantField(${i},'img',this.value);renderVariantRows()"
+          style="flex:1;border:1px solid #ddd;border-radius:6px;padding:6px 9px;font-size:11px;font-family:inherit;outline:none"
+          ${imgSrc.startsWith('data:') ? 'title="已上傳本機圖片"' : ''}>
+        <label style="cursor:pointer;white-space:nowrap">
+          <input type="file" accept="image/*" style="display:none" onchange="uploadVariantImg(${i},this)">
+          <span style="font-size:11px;border:1px solid #ddd;border-radius:6px;padding:5px 10px;background:#fff;cursor:pointer;white-space:nowrap">本機上傳</span>
+        </label>
+        <button onclick="removeVariantRow(${i})" style="background:none;border:none;color:#ccc;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0" title="移除">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function uploadVariantImg(idx, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    editingVariants[idx].img = e.target.result;
+    renderVariantRows();
+  };
+  reader.readAsDataURL(file);
 }
 
 function previewProdImg(url) {
