@@ -1403,6 +1403,7 @@ function saveProduct() {
 
   closeProductModal();
   renderProductList();
+  syncCatalogToBackend();
 }
 
 function deleteProduct() {
@@ -1424,6 +1425,19 @@ function deleteProduct() {
 
   closeProductModal();
   renderProductList();
+  syncCatalogToBackend();
+}
+
+async function syncCatalogToBackend() {
+  loadAdminProducts();
+  try {
+    await apiFetch('/api/admin/settings/products', {
+      method: 'POST',
+      body: JSON.stringify(adminProducts),
+    });
+  } catch (e) {
+    console.warn('[sync] 目錄同步失敗:', e.message);
+  }
 }
 
 // ── Gift Requests ─────────────────────────────────────────────

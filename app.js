@@ -230,8 +230,19 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-renderSeriesFilter();
-renderProducts();
+(async () => {
+  try {
+    const res = await fetch(`${SHOP_API}/api/settings/products`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        PRODUCTS.splice(0, PRODUCTS.length, ...data);
+      }
+    }
+  } catch (e) {}
+  renderSeriesFilter();
+  renderProducts();
+})();
 
 // Back-to-top + series bar hide/show + active pill
 const backToTopBtn = document.getElementById('backToTop');
