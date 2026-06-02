@@ -266,6 +266,9 @@ function openDrawer(orderNumber) {
     </table>
     <div class="breakdown-card">
       <div class="breakdown-row"><span class="label">原價總額（業績計算）</span><span class="mono">${fmt(o.retail_total)}</span></div>
+      ${o.discount_amount > 0 ? `<div class="breakdown-row"><span class="label">折扣</span><span class="mono" style="color:#e55">−${fmt(o.discount_amount)}</span></div>` : ''}
+      ${o.shipping_fee > 0 ? `<div class="breakdown-row"><span class="label">運費</span><span class="mono">+${fmt(o.shipping_fee)}</span></div>` : ''}
+      ${(o.discount_amount > 0 || o.shipping_fee > 0) ? `<div class="breakdown-row"><span class="label" style="font-weight:600">客人實付</span><span class="mono" style="font-weight:700">${fmt(o.final_amount)}</span></div>` : ''}
       ${discountLine}
     </div>`;
 
@@ -906,6 +909,11 @@ function openEditCustomerModal() {
   if (searchEl) searchEl.value = '';
   fillEditProductSelect('');
 
+  const discountEl = document.getElementById('editDiscount');
+  const shippingEl = document.getElementById('editShipping');
+  if (discountEl) discountEl.value = o.discount_amount || '';
+  if (shippingEl) shippingEl.value = o.shipping_fee || '';
+
   editItems = (o.items || []).map(i => ({ ...i }));
   renderEditItems();
 
@@ -991,9 +999,17 @@ function addEditItem() {
 }
 
 function updateEditTotal() {
-  const total = editItems.reduce((s, i) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
+  const subtotal = editItems.reduce((s, i) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
+  const discount = parseInt(document.getElementById('editDiscount')?.value) || 0;
+  const shipping = parseInt(document.getElementById('editShipping')?.value) || 0;
+  const final = subtotal - discount + shipping;
   const el = document.getElementById('editOrderTotal');
-  el.textContent = total ? `原價總額：NTD ${total.toLocaleString()}` : '';
+  if (!subtotal && !discount && !shipping) { el.textContent = ''; return; }
+  el.innerHTML =
+    `<div style="display:flex;justify-content:space-between;color:#888"><span>原價小計</span><span class="mono">NTD ${subtotal.toLocaleString()}</span></div>` +
+    (discount ? `<div style="display:flex;justify-content:space-between;color:#e55"><span>折扣</span><span class="mono">−NTD ${discount.toLocaleString()}</span></div>` : '') +
+    (shipping ? `<div style="display:flex;justify-content:space-between;color:#888"><span>運費</span><span class="mono">+NTD ${shipping.toLocaleString()}</span></div>` : '') +
+    `<div style="display:flex;justify-content:space-between;font-weight:700;color:#111;border-top:1px solid #eee;margin-top:6px;padding-top:6px"><span>客人實付</span><span class="mono">NTD ${final.toLocaleString()}</span></div>`;
 }
 
 async function saveEditCustomer() {
@@ -1009,6 +1025,8 @@ async function saveEditCustomer() {
     notes: document.getElementById('editCustNotes').value.trim(),
     payment_method: document.getElementById('editCustPayment').value.trim(),
     agent_code: document.getElementById('editCustAgent').value || null,
+    discount_amount: parseInt(document.getElementById('editDiscount')?.value) || 0,
+    shipping_fee: parseInt(document.getElementById('editShipping')?.value) || 0,
     items: editItems.map(i => ({
       product_code: i.product_code || null,
       product_name: i.product_name,

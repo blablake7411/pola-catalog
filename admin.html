@@ -1162,9 +1162,23 @@
         <button class="btn ghost" style="white-space:nowrap;padding:7px 14px" onclick="addEditItem()">+ 加入</button>
       </div>
     </div>
-    <div id="editOrderTotal" style="margin-top:12px;font-size:13px;text-align:right;color:#444;font-weight:500"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <div>
+        <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">折扣金額（-）</label>
+        <input type="number" id="editDiscount" min="0" placeholder="0"
+          oninput="updateEditTotal()"
+          style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">運費（+）</label>
+        <input type="number" id="editShipping" min="0" placeholder="0"
+          oninput="updateEditTotal()"
+          style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+      </div>
+    </div>
+    <div id="editOrderTotal" style="margin-top:10px;font-size:13px;text-align:right;color:#444;font-weight:500;background:#f9f9f9;border-radius:8px;padding:10px 12px;line-height:1.8"></div>
 
-    <div style="display:flex;gap:8px;margin-top:20px">
+    <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn ghost" style="flex:1" onclick="closeEditCustomerModal()">取消</button>
       <button class="btn" style="flex:1" onclick="saveEditCustomer()">儲存</button>
     </div>
