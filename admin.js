@@ -2,11 +2,23 @@ const ADMIN_API = 'https://pola-shop-production.up.railway.app';
 const ADMIN_TOKEN = 'pola-admin-2026';
 
 const TIER_RULES = [
-  { tier: 1, name: '新階',   minRetail: 0,       maxRetail: 70000,   discount: 0.80 },
-  { tier: 2, name: '中階',   minRetail: 70000,   maxRetail: 140000,  discount: 0.75 },
-  { tier: 3, name: '資深',   minRetail: 140000,  maxRetail: Infinity, discount: 0.70 },
+  { tier: 1, name: '新階', minRetail: 0,       maxRetail: 100000,  discount: 0.80 },
+  { tier: 2, name: '中階', minRetail: 100000,  maxRetail: 200000,  discount: 0.75 },
+  { tier: 3, name: '資深', minRetail: 200000,  maxRetail: Infinity, discount: 0.70 },
+];
+const STORE_TIER_RULES = [
+  { tier: 1, name: '店家',     minRetail: 0,       maxRetail: 300000,  discount: 0.75 },
+  { tier: 2, name: '店家高階', minRetail: 300000,  maxRetail: Infinity, discount: 0.70 },
 ];
 const YOUR_COST_RATE = 0.60;
+
+function formatPhone(phone) {
+  if (!phone) return phone;
+  const d = String(phone).replace(/\D/g, '');
+  if (d.length === 10 && d.startsWith('09')) return d.slice(0,4) + '-' + d.slice(4,7) + '-' + d.slice(7);
+  if (d.length === 10) return d.slice(0,2) + '-' + d.slice(2,6) + '-' + d.slice(6);
+  return phone;
+}
 
 let ORDERS = [], AGENTS = [], CUSTOMERS = [];
 let kpiData = null;
@@ -61,11 +73,29 @@ async function loadData() {
 
 // ── Init ─────────────────────────────────────────────────────
 
+function buildMonthSelect(elId, selected) {
+  const sel = document.getElementById(elId);
+  if (!sel) return;
+  sel.innerHTML = '';
+  const now = new Date();
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = `${d.getFullYear()} / ${d.getMonth()+1}月`;
+    if (val === selected) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
 async function init() {
+  buildMonthSelect('monthInput', currentMonth);
+
   await loadData();
 
   const agentSel = document.getElementById('agentFilter');
-  agentSel.innerHTML = '<option value="">全部業務</option>' +
+  agentSel.innerHTML = '<option value="">全部顧問</option>' +
     AGENTS.map(a => `<option value="${a.code}">${a.name} (${a.code})</option>`).join('');
 
   document.querySelectorAll('.sidenav button').forEach(btn => {
@@ -89,10 +119,12 @@ function switchView(view) {
   document.querySelectorAll('.sidenav button').forEach(b => {
     b.classList.toggle('active', b.dataset.view === view);
   });
-  ['orders', 'agents', 'report', 'products', 'customers'].forEach(v => {
+  ['orders', 'agents', 'report', 'products', 'customers', 'settlement'].forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) el.classList.toggle('hidden', v !== view);
   });
+  if (view === 'products') renderProductList();
+  if (view === 'settlement') renderSettlement();
 }
 
 function updatePendingBadge() {
@@ -277,40 +309,106 @@ function renderAgents() {
 
   tbody.innerHTML = list.map(a => {
     const s = a.monthly_stats || {};
-    const calcTier = getTierByMonthlyRetail(s.retail_sum || 0);
-    const next = getNextTier(calcTier.tier);
-    const currentRule = TIER_RULES.find(t => t.tier === a.current_tier);
-    const tierMin = calcTier.minRetail;
-    const tierMax = next ? next.minRetail : tierMin * 1.5;
-    const progress = Math.min(100, (((s.retail_sum || 0) - tierMin) / (tierMax - tierMin)) * 100);
-    const remaining = next ? next.minRetail - (s.retail_sum || 0) : 0;
+    const retail = s.retail_sum || 0;
+
+    // ── 老闆特殊顯示（agent_type = 'owner' 或 discount_rate <= 0.6）──────
+    const isOwner = a.agent_type === 'owner' || (a.discount_rate != null && a.discount_rate <= 0.60);
+    if (isOwner) {
+      return `<tr>
+        <td><strong>${a.name}</strong><br><span style="font-size:11px;color:#888">${formatPhone(a.phone) || '—'}</span></td>
+        <td class="mono">${a.code}</td>
+        <td><span style="background:#111;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:1px">老闆</span></td>
+        <td class="mono">6折</td>
+        <td style="font-size:12px;color:#aaa">直接與廠商結款</td>
+        <td class="num">${s.order_count || 0}</td>
+        <td class="num mono">${fmt(s.agent_cost_sum || 0)}</td>
+        <td class="num mono" style="color:#19884a">${fmt(s.your_profit_sum || 0)}</td>
+        <td><button class="btn ghost sm" onclick="openEditAgentModal('${a.code}')">編輯</button></td>
+      </tr>`;
+    }
+
+    const currentRule = TIER_RULES.find(t => t.tier === a.current_tier) || TIER_RULES[0];
+    const nextTier = getNextTier(a.current_tier);
+    const calcTier = getTierByMonthlyRetail(retail);
     const lockedBadge = a.manual_override ? `<span title="等級已鎖定" style="font-size:10px;color:#666;margin-left:4px">🔒</span>` : '';
+
+    // 進度條 & 文字
+    let progress = 0, progressText = '';
+    if (a.manual_override) {
+      // 鎖定：只顯示本月業績，不顯示升級進度
+      progress = 0;
+      progressText = `${fmt(retail)} · 等級已鎖定`;
+    } else if (!nextTier) {
+      // 已是最高階：看是否達標維持
+      const maintain = currentRule.minRetail;
+      progress = maintain > 0 ? Math.min(100, (retail / maintain) * 100) : 100;
+      progressText = retail >= maintain
+        ? `${fmt(retail)} · 已達最高階`
+        : `${fmt(retail)} · 需達 ${fmt(maintain)} 維持 T${a.current_tier}`;
+    } else if (calcTier.tier >= a.current_tier) {
+      // 本月業績已達當前階：顯示升級進度
+      const gap = nextTier.minRetail - retail;
+      progress = Math.min(100, ((retail - currentRule.minRetail) / (nextTier.minRetail - currentRule.minRetail)) * 100);
+      progressText = `${fmt(retail)} · 還差 ${fmt(Math.max(0, gap))} 升 T${nextTier.tier}`;
+    } else {
+      // 本月業績低於當前階門檻：顯示維持進度
+      const maintain = currentRule.minRetail;
+      progress = maintain > 0 ? Math.min(100, (retail / maintain) * 100) : 0;
+      progressText = `${fmt(retail)} · 需達 ${fmt(maintain)} 維持 T${a.current_tier}`;
+    }
+
+    const fillClass = a.current_tier === 2 ? 't2' : a.current_tier === 3 ? 't3' : '';
+    // 只在實際有下月調整資料時才顯示警告，且說明 3 個月規則
+    const backendNextTier = s.calculated_tier_next_month;
+    const warnNext = !a.manual_override && backendNextTier != null
+      ? backendNextTier < a.current_tier
+      : false; // 沒有後端資料就不亂猜
 
     return `
     <tr>
-      <td><strong>${a.name}</strong><br><span style="font-size:11px;color:#888">${a.phone || '—'}</span></td>
+      <td><strong>${a.name}</strong><br><span style="font-size:11px;color:#888">${formatPhone(a.phone) || '—'}</span></td>
       <td class="mono">${a.code}</td>
       <td>
         <span class="tier T${a.current_tier}">T${a.current_tier}</span> ${currentRule.name}${lockedBadge}
-        ${(calcTier.tier !== a.current_tier && !a.manual_override) ? `<br><span style="font-size:10px;color:#c97c14">⚠ 下月將調整至 T${calcTier.tier}</span>` : ''}
+        ${warnNext ? `<br><span style="font-size:10px;color:#c97c14">⚠ 若連續 3 個月未達標則調整至 T${backendNextTier}</span>` : ''}
       </td>
       <td class="mono">${currentRule.discount * 10}折</td>
       <td style="min-width:200px">
-        <div class="tier-bar"><div class="tier-bar-fill ${calcTier.tier === 2 ? 't2' : calcTier.tier === 3 ? 't3' : ''}" style="width:${progress}%"></div></div>
-        <div class="tier-progress-text mono">${fmt(s.retail_sum || 0)}${next ? ` · 還差 ${fmt(remaining)} 升 T${next.tier}` : ' · 已達最高階'}</div>
+        <div class="tier-bar"><div class="tier-bar-fill ${fillClass}" style="width:${progress}%"></div></div>
+        <div class="tier-progress-text mono">${progressText}</div>
       </td>
       <td class="num">${s.order_count || 0}</td>
       <td class="num mono">${fmt(s.agent_cost_sum || 0)}</td>
       <td class="num mono" style="color:#19884a">${fmt(s.your_profit_sum || 0)}</td>
-      <td><button class="btn ghost sm" onclick="openEditAgentModal('${a.code}')">編輯</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn ghost sm" onclick="openEditAgentModal('${a.code}')">編輯</button>
+        <button class="btn ghost sm" style="margin-top:4px" onclick="window.open('agent?agent=${a.code}','_blank')">後台</button>
+      </td>
     </tr>`;
   }).join('');
 }
 
 // ── New Agent Modal ───────────────────────────────────────────
 
+function updateNewAgentTierOptions() {
+  const type = document.getElementById('newAgentType').value;
+  const sel = document.getElementById('newAgentTier');
+  if (type === 'store') {
+    sel.innerHTML = `
+      <option value="1">S1 店家 — 7.5折進貨</option>
+      <option value="2">S2 店家高階 — 7折進貨</option>`;
+  } else {
+    sel.innerHTML = `
+      <option value="1">T1 新階 — 8折進貨</option>
+      <option value="2">T2 中階 — 7.5折進貨</option>
+      <option value="3">T3 資深 — 7折進貨</option>`;
+  }
+}
+
 function openNewAgentModal() {
   document.getElementById('newAgentModal').classList.add('open');
+  document.getElementById('newAgentType').value = 'personal';
+  updateNewAgentTierOptions();
   const lastNum = AGENTS.map(a => parseInt(a.code.replace(/\D/g, ''))).filter(n => !isNaN(n));
   const next = lastNum.length ? Math.max(...lastNum) + 1 : 1;
   document.getElementById('newAgentCode').value = 'A' + String(next).padStart(3, '0');
@@ -324,11 +422,14 @@ async function saveNewAgent() {
   const code = document.getElementById('newAgentCode').value.trim();
   const phone = document.getElementById('newAgentPhone').value.trim();
   const tier = parseInt(document.getElementById('newAgentTier').value);
-  if (!name || !code) { alert('請填寫姓名與業務代碼'); return; }
+  const agentType = document.getElementById('newAgentType').value;
+  if (!name || !code) { alert('請填寫姓名與顧問代碼'); return; }
+  // T2/T3 起始自動鎖定，避免一加入就觸發降級警告
+  const autoLock = tier >= 2;
   try {
     await apiFetch('/api/admin/agents', {
       method: 'POST',
-      body: JSON.stringify({ code, name, phone, current_tier: tier }),
+      body: JSON.stringify({ code, name, phone, current_tier: tier, agent_type: agentType, manual_override: autoLock }),
     });
     await refreshAgents();
     closeNewAgentModal();
@@ -338,6 +439,12 @@ async function saveNewAgent() {
 }
 
 // ── Edit Agent Modal ──────────────────────────────────────────
+
+function toggleEditTierField() {
+  const type = document.getElementById('editAgentType')?.value;
+  const field = document.getElementById('editAgentTierField');
+  if (field) field.style.display = (type === 'owner') ? 'none' : '';
+}
 
 function openEditAgentModal(code) {
   const a = AGENTS.find(x => x.code === code);
@@ -349,6 +456,11 @@ function openEditAgentModal(code) {
   document.getElementById('editAgentTier').value = String(a.current_tier);
   document.getElementById('editAgentManualOverride').checked = !!a.manual_override;
   document.getElementById('editAgentJoined').value = a.joined_at || '';
+  const typeEl = document.getElementById('editAgentType');
+  if (typeEl) {
+    typeEl.value = a.agent_type === 'owner' ? 'owner' : (a.agent_type === 'store' ? 'store' : 'personal');
+    toggleEditTierField();
+  }
   document.getElementById('editAgentModal').classList.add('open');
 }
 function closeEditAgentModal() {
@@ -361,11 +473,14 @@ async function saveEditAgent() {
   const newTier = parseInt(document.getElementById('editAgentTier').value);
   const newOverride = document.getElementById('editAgentManualOverride').checked;
   const newJoined = document.getElementById('editAgentJoined').value;
+  const newType = document.getElementById('editAgentType')?.value || 'personal';
   if (!newName) { alert('姓名為必填'); return; }
+  const body = { name: newName, phone: newPhone, manual_override: newOverride, joined_at: newJoined, agent_type: newType };
+  if (newType !== 'owner') body.current_tier = newTier;
   try {
     await apiFetch(`/api/admin/agents/${origCode}`, {
       method: 'PATCH',
-      body: JSON.stringify({ name: newName, phone: newPhone, current_tier: newTier, manual_override: newOverride, joined_at: newJoined }),
+      body: JSON.stringify(body),
     });
     await refreshAgents();
     closeEditAgentModal();
@@ -379,8 +494,8 @@ async function deleteAgent() {
   if (!a) return;
   const orderCount = ORDERS.filter(o => o.agent_code === origCode).length;
   const msg = orderCount > 0
-    ? `確定要刪除業務「${a.name}」？\n\n注意：該業務名下有 ${orderCount} 筆訂單。`
-    : `確定要刪除業務「${a.name}」？`;
+    ? `確定要刪除顧問「${a.name}」？\n\n注意：該顧問名下有 ${orderCount} 筆訂單。`
+    : `確定要刪除顧問「${a.name}」？`;
   if (!confirm(msg)) return;
   try {
     await apiFetch(`/api/admin/agents/${origCode}`, { method: 'DELETE' });
@@ -395,7 +510,7 @@ async function refreshAgents() {
   AGENTS = await apiFetch(`/api/admin/agents?month=${currentMonth}`);
   const sel = document.getElementById('agentFilter');
   const cur = sel.value;
-  sel.innerHTML = '<option value="">全部業務</option>' +
+  sel.innerHTML = '<option value="">全部顧問</option>' +
     AGENTS.map(a => `<option value="${a.code}">${a.name} (${a.code})</option>`).join('');
   sel.value = cur;
   renderAgents();
@@ -521,41 +636,90 @@ async function deleteCustomer(phone, name) {
 
 // ── Month switcher ────────────────────────────────────────────
 
-async function cycleMonth() {
-  const [year, mon] = currentMonth.split('-').map(Number);
-  const d = new Date(year, mon - 2);
-  currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  document.getElementById('monthPill').textContent = `${d.getFullYear()} / ${d.getMonth() + 1}月 ▾`;
+async function changeMonth(val) {
+  if (!val) return;
+  currentMonth = val;
   await loadData();
   renderKPIs();
   renderOrders();
   renderAgents();
   renderReport();
+  renderSettlement();
   updatePendingBadge();
 }
 
-// ── Export CSV ────────────────────────────────────────────────
+// ── PDF 列印通用函式 ──────────────────────────────────────────
 
-function exportCSV() {
-  const headers = ['訂單號', '日期', '業務', '客人', '電話', '地址', '備註', '原價', '實收', '毛利', '狀態'];
-  const rows = ORDERS.map(o => {
+function openPrintWindow(title, bodyHTML) {
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="zh-TW"><head>
+<meta charset="UTF-8"><title>${title}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Helvetica Neue',Arial,'Noto Sans TC',sans-serif;font-size:12px;color:#111;padding:28px 32px}
+h1{font-size:20px;font-weight:700;margin-bottom:4px}
+.sub{font-size:11px;color:#888;margin-bottom:20px}
+.brand{font-size:22px;font-weight:900;letter-spacing:4px;margin-bottom:2px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat{border:1px solid #eee;border-radius:6px;padding:12px 14px}
+.stat .lbl{font-size:9px;color:#888;letter-spacing:1px;text-transform:uppercase}
+.stat .val{font-size:18px;font-weight:700;margin-top:4px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 10px;font-size:9px;color:#888;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #111}
+td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:11px}
+.num{text-align:right}
+.footer{margin-top:24px;font-size:10px;color:#bbb;text-align:center}
+.print-btn{display:inline-block;margin-top:20px;background:#111;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit}
+@media print{.no-print{display:none!important}.print-btn{display:none}}
+</style></head><body>
+<div class="brand">POLA</div>
+<h1>${title}</h1>
+<div class="sub">列印日期：${new Date().toLocaleDateString('zh-TW')} &nbsp;·&nbsp; 月份：${currentMonth}</div>
+${bodyHTML}
+<div class="footer">© 2026 POLA 台灣 · 所有金額單位 NTD</div>
+<div class="no-print" style="text-align:center">
+  <button class="print-btn" onclick="window.print()">列印 / 儲存 PDF</button>
+</div>
+</body></html>`);
+  w.document.close();
+}
+
+// ── 訂單匯出 PDF ─────────────────────────────────────────────
+
+function exportOrdersPDF() {
+  const list = ORDERS.slice();
+  const retailTotal = list.filter(o=>o.status!=='已取消').reduce((s,o)=>s+(o.retail_total||0),0);
+  const agentTotal = list.filter(o=>o.status!=='已取消').reduce((s,o)=>s+(o.agent_cost_total||0),0);
+  const profitTotal = list.filter(o=>o.status!=='已取消').reduce((s,o)=>s+(o.your_profit||0),0);
+
+  const statsHTML = `<div class="stats">
+    <div class="stat"><div class="lbl">本月訂單</div><div class="val">${list.length}</div></div>
+    <div class="stat"><div class="lbl">原價總額</div><div class="val">${fmt(retailTotal)}</div></div>
+    <div class="stat"><div class="lbl">顧問實付</div><div class="val">${fmt(agentTotal)}</div></div>
+    <div class="stat"><div class="lbl">你的毛利</div><div class="val">${fmt(profitTotal)}</div></div>
+  </div>`;
+
+  const rows = list.map(o => {
     const agent = AGENTS.find(a => a.code === o.agent_code);
-    return [
-      o.order_number, createdAtFmt(o.created_at), agent ? agent.name : (o.agent_code || ''),
-      o.customer_name, o.customer_phone || '', o.customer_address || '', o.notes || '',
-      o.retail_total, o.agent_cost_total, o.your_profit, o.status,
-    ];
-  });
-  const csv = [headers, ...rows]
-    .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `POLA-訂單-${currentMonth}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+    return `<tr>
+      <td>${o.order_number}</td>
+      <td>${createdAtFmt(o.created_at)}</td>
+      <td>${agent ? agent.name : (o.agent_code || '未指定')}</td>
+      <td>${o.customer_name}</td>
+      <td>${formatPhone(o.customer_phone)||'—'}</td>
+      <td class="num">${fmt(o.retail_total)}</td>
+      <td class="num">${fmt(o.agent_cost_total)}</td>
+      <td class="num" style="color:#19884a">${fmt(o.your_profit)}</td>
+      <td>${o.status}</td>
+    </tr>`;
+  }).join('');
+
+  const tableHTML = `<table>
+    <thead><tr><th>訂單號</th><th>日期</th><th>顧問</th><th>客人</th><th>電話</th><th class="num">原價</th><th class="num">實收</th><th class="num">毛利</th><th>狀態</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  openPrintWindow(`訂單報表 — ${currentMonth}`, statsHTML + tableHTML);
 }
 
 // ── Print Shipping Slip ───────────────────────────────────────
@@ -611,7 +775,7 @@ function printShippingSlip() {
   <h2>收件人</h2>
   <dl class="info-grid">
     <dt>姓名</dt><dd>${o.customer_name}</dd>
-    <dt>電話</dt><dd>${o.customer_phone || '—'}</dd>
+    <dt>電話</dt><dd>${formatPhone(o.customer_phone) || '—'}</dd>
     <dt>地址</dt><dd>${o.customer_address || '—'}</dd>
     ${o.notes ? `<dt>備註</dt><dd>${o.notes}</dd>` : ''}
   </dl>
@@ -643,16 +807,48 @@ function printShippingSlip() {
   win.document.close();
 }
 
-// ── Edit Customer Modal ───────────────────────────────────────
+// ── Edit Order Modal ──────────────────────────────────────────
+
+let editItems = [];
 
 function openEditCustomerModal() {
   const o = ORDERS.find(x => x.order_number === selectedOrderId);
   if (!o) return;
+
   document.getElementById('editCustOrderNum').value = o.order_number;
   document.getElementById('editCustName').value = o.customer_name || '';
   document.getElementById('editCustPhone').value = o.customer_phone || '';
   document.getElementById('editCustAddress').value = o.customer_address || '';
   document.getElementById('editCustNotes').value = o.notes || '';
+  document.getElementById('editCustPayment').value = o.payment_method || '';
+
+  const agentSel = document.getElementById('editCustAgent');
+  agentSel.innerHTML = '<option value="">未指定</option>';
+  (AGENTS || []).forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.code;
+    opt.textContent = `${a.name} (${a.code})`;
+    if (a.code === o.agent_code) opt.selected = true;
+    agentSel.appendChild(opt);
+  });
+
+  const prodSel = document.getElementById('editNewProduct');
+  prodSel.innerHTML = '<option value="">選擇商品…</option>';
+  (PRODUCTS || []).forEach(p => {
+    const unitPrice = parseInt((p.price || '').replace(/[^0-9]/g, '')) || 0;
+    const opt = document.createElement('option');
+    opt.value = p.code || p.name;
+    opt.textContent = `${p.code ? p.code + ' ' : ''}${p.name}  NTD ${unitPrice.toLocaleString()}`;
+    opt.dataset.name = p.name;
+    opt.dataset.price = unitPrice;
+    opt.dataset.series = p.series || '';
+    opt.dataset.code = p.code || '';
+    prodSel.appendChild(opt);
+  });
+
+  editItems = (o.items || []).map(i => ({ ...i }));
+  renderEditItems();
+
   document.getElementById('editCustomerModal').classList.add('open');
 }
 
@@ -660,16 +856,85 @@ function closeEditCustomerModal() {
   document.getElementById('editCustomerModal').classList.remove('open');
 }
 
+function renderEditItems() {
+  const container = document.getElementById('editOrderItems');
+  if (!editItems.length) {
+    container.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">（尚無商品）</div>';
+    updateEditTotal();
+    return;
+  }
+  container.innerHTML = editItems.map((item, idx) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f2f2f2">
+      <div style="flex:1;font-size:13px;line-height:1.4">
+        ${item.product_code ? `<span style="color:#bbb;font-size:11px;margin-right:3px">${item.product_code}</span>` : ''}${item.product_name}
+      </div>
+      <input type="number" value="${item.quantity}" min="1"
+        style="width:52px;border:1px solid #ddd;border-radius:5px;padding:5px 6px;font-size:13px;text-align:center;font-family:inherit;outline:none"
+        onchange="updateEditItemQty(${idx}, this.value)">
+      <div style="min-width:80px;text-align:right;font-size:12px;color:#555">NTD ${(item.unit_price || 0).toLocaleString()}</div>
+      <button onclick="removeEditItem(${idx})"
+        style="background:none;border:none;cursor:pointer;color:#c00;font-size:18px;line-height:1;padding:0 2px">×</button>
+    </div>
+  `).join('');
+  updateEditTotal();
+}
+
+function updateEditItemQty(idx, val) {
+  editItems[idx].quantity = Math.max(1, parseInt(val) || 1);
+  updateEditTotal();
+}
+
+function removeEditItem(idx) {
+  editItems.splice(idx, 1);
+  renderEditItems();
+}
+
+function addEditItem() {
+  const sel = document.getElementById('editNewProduct');
+  const opt = sel.selectedOptions[0];
+  if (!opt || !opt.value || opt.value === '') return;
+  const qty = Math.max(1, parseInt(document.getElementById('editNewQty').value) || 1);
+  editItems.push({
+    product_code: opt.dataset.code || null,
+    product_name: opt.dataset.name,
+    product_series: opt.dataset.series || null,
+    unit_price: parseInt(opt.dataset.price) || 0,
+    quantity: qty,
+  });
+  sel.value = '';
+  document.getElementById('editNewQty').value = 1;
+  renderEditItems();
+}
+
+function updateEditTotal() {
+  const total = editItems.reduce((s, i) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
+  const el = document.getElementById('editOrderTotal');
+  el.textContent = total ? `原價總額：NTD ${total.toLocaleString()}` : '';
+}
+
 async function saveEditCustomer() {
   const orderNum = document.getElementById('editCustOrderNum').value;
+  if (!editItems.length) {
+    alert('請至少加入一項商品');
+    return;
+  }
   const body = {
     customer_name: document.getElementById('editCustName').value.trim(),
     customer_phone: document.getElementById('editCustPhone').value.trim(),
     customer_address: document.getElementById('editCustAddress').value.trim(),
     notes: document.getElementById('editCustNotes').value.trim(),
+    payment_method: document.getElementById('editCustPayment').value.trim(),
+    agent_code: document.getElementById('editCustAgent').value || null,
+    items: editItems.map(i => ({
+      product_code: i.product_code || null,
+      product_name: i.product_name,
+      product_series: i.product_series || null,
+      unit_price: i.unit_price,
+      quantity: i.quantity,
+    })),
   };
   try {
-    const updated = await apiFetch(`/api/admin/orders/${orderNum}/customer`, {
+    const updated = await apiFetch(`/api/admin/orders/${orderNum}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     });
@@ -677,9 +942,350 @@ async function saveEditCustomer() {
     if (idx !== -1) ORDERS[idx] = updated;
     closeEditCustomerModal();
     openDrawer(orderNum);
+    renderOrders();
   } catch (e) {
     alert('儲存失敗：' + e.message);
   }
+}
+
+// ── Settlement (月結交點) ──────────────────────────────────────
+
+const OWNER_COST_RATE = 0.60;
+
+function renderSettlement() {
+  const validOrders = ORDERS.filter(o => o.status !== '已取消');
+  const retailTotal = validOrders.reduce((s, o) => s + (o.retail_total || 0), 0);
+  const agentCostTotal = validOrders.reduce((s, o) => s + (o.agent_cost_total || 0), 0);
+  const ownerCost = Math.round(retailTotal * OWNER_COST_RATE);
+  const profit = agentCostTotal - ownerCost;
+
+  document.getElementById('stlOrderCount').textContent = validOrders.length;
+  document.getElementById('stlOrderSub').textContent = `含取消單 ${ORDERS.length - validOrders.length} 筆`;
+  document.getElementById('stlRetail').textContent = fmt(retailTotal);
+  document.getElementById('stlCost').textContent = fmt(ownerCost);
+  document.getElementById('stlProfit').textContent = fmt(profit);
+
+  // Settlement status
+  const settledKey = `pola_settled_${currentMonth}`;
+  const settled = JSON.parse(localStorage.getItem(settledKey) || 'null');
+  const statusLabel = document.getElementById('stlStatusLabel');
+  const settledAt = document.getElementById('stlSettledAt');
+  const settleBtn = document.getElementById('stlSettleBtn');
+  if (settled) {
+    statusLabel.textContent = '已結款';
+    statusLabel.style.color = '#19884a';
+    settledAt.textContent = `${settled.date} 確認`;
+    settleBtn.textContent = '取消結款';
+    settleBtn.className = 'btn ghost';
+    settleBtn.style.fontSize = '12px';
+    settleBtn.style.padding = '7px 16px';
+    settleBtn.onclick = () => unmarkSettled();
+  } else {
+    statusLabel.textContent = '未結款';
+    statusLabel.style.color = '#c97c14';
+    settledAt.textContent = '';
+    settleBtn.textContent = `確認本月已結款（付廠商 ${fmt(ownerCost)}）`;
+    settleBtn.className = 'btn';
+    settleBtn.style.fontSize = '12px';
+    settleBtn.style.padding = '7px 16px';
+    settleBtn.onclick = () => markSettled();
+  }
+
+  // Agent breakdown
+  const agentMap = {};
+  validOrders.forEach(o => {
+    const agent = AGENTS.find(a => a.code === o.agent_code);
+    const key = o.agent_code || '__none__';
+    const name = agent ? agent.name : (o.agent_code ? o.agent_code : '（直接下單／未指定）');
+    if (!agentMap[key]) agentMap[key] = { name, retail: 0, agentCost: 0, ownerCost: 0, count: 0 };
+    agentMap[key].retail += (o.retail_total || 0);
+    agentMap[key].agentCost += (o.agent_cost_total || 0);
+    agentMap[key].ownerCost += Math.round((o.retail_total || 0) * OWNER_COST_RATE);
+    agentMap[key].count++;
+  });
+
+  const breakdown = document.getElementById('stlAgentBreakdown');
+  breakdown.innerHTML = Object.values(agentMap).sort((a, b) => b.retail - a.retail).map(row => `
+    <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:16px;align-items:center;padding:10px 16px;border-bottom:1px solid #f5f5f5;font-size:13px">
+      <div style="font-weight:600">${row.name} <span style="color:#aaa;font-weight:400;font-size:11px">${row.count} 筆</span></div>
+      <div class="mono" style="text-align:right;color:#888">${fmt(row.retail)}<br><span style="font-size:10px">原價</span></div>
+      <div class="mono" style="text-align:right">${fmt(row.agentCost)}<br><span style="font-size:10px;color:#aaa">顧問付你</span></div>
+      <div class="mono" style="text-align:right;color:#c97c14">${fmt(row.ownerCost)}<br><span style="font-size:10px;color:#aaa">你付廠商</span></div>
+      <div class="mono" style="text-align:right;color:#19884a">${fmt(row.agentCost - row.ownerCost)}<br><span style="font-size:10px;color:#aaa">毛利</span></div>
+    </div>
+  `).join('') || '<div style="padding:16px;color:#aaa;text-align:center">本月無訂單</div>';
+
+  // Orders table
+  const tbody = document.getElementById('stlOrdersTbody');
+  if (!validOrders.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-row">本月無訂單</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = validOrders.map(o => {
+    const agent = AGENTS.find(a => a.code === o.agent_code);
+    const agentName = agent ? agent.name : (o.agent_code || '直接下單');
+    const ownerCostRow = Math.round((o.retail_total || 0) * OWNER_COST_RATE);
+    return `<tr class="row-clickable" onclick="openDrawer('${o.order_number}')">
+      <td class="mono" style="font-weight:600">${o.order_number}</td>
+      <td style="color:#666;font-size:12px">${createdAtFmt(o.created_at)}</td>
+      <td>${agentName}</td>
+      <td>${o.customer_name}</td>
+      <td class="num mono">${fmt(o.retail_total)}</td>
+      <td class="num mono">${o.agent_discount ? (o.agent_discount * 10) + '折' : '—'}</td>
+      <td class="num mono" style="color:#c97c14">${fmt(ownerCostRow)}</td>
+      <td><span class="status ${o.status}">${o.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function markSettled() {
+  const key = `pola_settled_${currentMonth}`;
+  localStorage.setItem(key, JSON.stringify({ date: new Date().toLocaleDateString('zh-TW') }));
+  renderSettlement();
+}
+function unmarkSettled() {
+  if (!confirm('確定取消本月結款記錄？')) return;
+  localStorage.removeItem(`pola_settled_${currentMonth}`);
+  renderSettlement();
+}
+
+function exportSettlementPDF() {
+  const validOrders = ORDERS.filter(o => o.status !== '已取消');
+  const retailTotal = validOrders.reduce((s,o)=>s+(o.retail_total||0),0);
+  const agentCostTotal = validOrders.reduce((s,o)=>s+(o.agent_cost_total||0),0);
+  const ownerCost = Math.round(retailTotal * OWNER_COST_RATE);
+  const profit = agentCostTotal - ownerCost;
+
+  const settled = JSON.parse(localStorage.getItem(`pola_settled_${currentMonth}`) || 'null');
+
+  const statsHTML = `<div class="stats">
+    <div class="stat"><div class="lbl">訂單筆數</div><div class="val">${validOrders.length}</div></div>
+    <div class="stat"><div class="lbl">客人原價總額</div><div class="val">${fmt(retailTotal)}</div></div>
+    <div class="stat"><div class="lbl">你應付廠商（6折）</div><div class="val">${fmt(ownerCost)}</div></div>
+    <div class="stat"><div class="lbl">你的毛利</div><div class="val">${fmt(profit)}</div></div>
+  </div>
+  <p style="font-size:11px;margin-bottom:14px;color:${settled ? '#19884a' : '#c97c14'}">
+    結款狀態：${settled ? `已結款（${settled.date}）` : '未結款'}
+  </p>`;
+
+  const rows = validOrders.map(o => {
+    const agent = AGENTS.find(a => a.code === o.agent_code);
+    const agentName = agent ? agent.name : (o.agent_code || '直接下單');
+    const ownerCostRow = Math.round((o.retail_total||0)*OWNER_COST_RATE);
+    return `<tr>
+      <td>${o.order_number}</td>
+      <td>${createdAtFmt(o.created_at)}</td>
+      <td>${agentName}</td>
+      <td>${o.customer_name}</td>
+      <td class="num">${fmt(o.retail_total)}</td>
+      <td class="num">${o.agent_discount ? o.agent_discount*10+'折' : '—'}</td>
+      <td class="num" style="color:#c97c14">${fmt(ownerCostRow)}</td>
+      <td class="num" style="color:#19884a">${fmt((o.agent_cost_total||0)-ownerCostRow)}</td>
+      <td>${o.status}</td>
+    </tr>`;
+  }).join('');
+
+  const tableHTML = `<table>
+    <thead><tr><th>訂單號</th><th>日期</th><th>顧問</th><th>客人</th><th class="num">原價</th><th class="num">折扣</th><th class="num">付廠商</th><th class="num">毛利</th><th>狀態</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  openPrintWindow(`月結交點 — ${currentMonth}`, statsHTML + tableHTML);
+}
+
+// ── Product Management ────────────────────────────────────────
+
+let adminProducts = [];
+let editingProductName = null;
+
+function loadAdminProducts() {
+  const overrides = JSON.parse(localStorage.getItem('pola_product_overrides') || '{}');
+  const newProds = JSON.parse(localStorage.getItem('pola_new_products') || '[]');
+  const base = (typeof PRODUCTS !== 'undefined' ? PRODUCTS : []);
+
+  adminProducts = base
+    .map(p => overrides[p.name] ? { ...p, ...overrides[p.name] } : { ...p })
+    .filter(p => !p._deleted);
+
+  adminProducts = [...adminProducts, ...newProds.filter(p => !p._deleted)];
+}
+
+function renderProductList() {
+  loadAdminProducts();
+  const search = (document.getElementById('prodSearch')?.value || '').toLowerCase();
+  const cat = document.getElementById('prodCatFilter')?.value || '';
+
+  let list = adminProducts.filter(p => {
+    if (cat && p.mainCategory !== cat) return false;
+    if (search && !p.name.toLowerCase().includes(search) && !(p.code || '').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const countEl = document.getElementById('prodCount');
+  if (countEl) countEl.textContent = `共 ${list.length} 件`;
+
+  const grid = document.getElementById('prodGrid');
+  if (!grid) return;
+  if (!list.length) {
+    grid.innerHTML = `<div style="color:#aaa;padding:40px;text-align:center;grid-column:1/-1">沒有符合條件的商品</div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(p => {
+    const isNew = !(typeof PRODUCTS !== 'undefined' ? PRODUCTS : []).some(x => x.name === p.name);
+    const hasOverride = !isNew && JSON.parse(localStorage.getItem('pola_product_overrides') || '{}')[p.name];
+    const pname = p.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `
+    <div class="prod-card" onclick="openEditProductModal('${pname}')">
+      <div class="prod-card-img">
+        ${p.img
+          ? `<img src="${p.img}" onerror="this.style.display='none'">`
+          : `<div class="no-img">無圖片</div>`}
+        ${isNew ? `<span style="position:absolute;top:6px;left:6px;background:#19884a;color:#fff;font-size:9px;padding:2px 6px;border-radius:4px">NEW</span>` : ''}
+        ${hasOverride ? `<span style="position:absolute;top:6px;left:6px;background:#d4a017;color:#fff;font-size:9px;padding:2px 6px;border-radius:4px">已編輯</span>` : ''}
+      </div>
+      <div class="prod-card-info">
+        <div class="prod-series-label">${p.series || ''}</div>
+        <div class="prod-card-name">${p.name}</div>
+        <div class="prod-card-price">${p.price || '—'}</div>
+        ${p.code ? `<div class="prod-card-code">${p.code}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openNewProductModal() {
+  editingProductName = null;
+  document.getElementById('productModalTitle').textContent = '新增商品';
+  document.getElementById('prodDeleteBtn').style.display = 'none';
+  document.getElementById('prodEditOrigName').value = '';
+  ['prodName','prodCode','prodPrice','prodSeries','prodSize','prodType','prodImgUrl','prodUrl','prodRefill','prodTagline','prodDesc','prodUsage','prodFootnotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.value = '';
+  });
+  document.getElementById('prodMainCat').value = '臉部保養';
+  previewProdImg('');
+  document.getElementById('productModal').classList.add('open');
+}
+
+function openEditProductModal(name) {
+  const p = adminProducts.find(x => x.name === name);
+  if (!p) return;
+  editingProductName = name;
+  document.getElementById('productModalTitle').textContent = '編輯商品';
+  document.getElementById('prodDeleteBtn').style.display = '';
+  document.getElementById('prodEditOrigName').value = name;
+
+  document.getElementById('prodName').value = p.name || '';
+  document.getElementById('prodCode').value = p.code || '';
+  document.getElementById('prodPrice').value = p.price || '';
+  document.getElementById('prodMainCat').value = p.mainCategory || '臉部保養';
+  document.getElementById('prodSeries').value = p.series || '';
+  document.getElementById('prodSize').value = p.size || '';
+  document.getElementById('prodType').value = p.type || '';
+  document.getElementById('prodImgUrl').value = p.img || '';
+  document.getElementById('prodUrl').value = p.url || '';
+  document.getElementById('prodRefill').value = p.refill || '';
+  document.getElementById('prodTagline').value = p.tagline || '';
+  document.getElementById('prodDesc').value = p.description || '';
+  document.getElementById('prodUsage').value = p.usage || '';
+  document.getElementById('prodFootnotes').value = (p.footnotes || []).join('\n');
+
+  previewProdImg(p.img || '');
+  document.getElementById('productModal').classList.add('open');
+}
+
+function closeProductModal() {
+  document.getElementById('productModal').classList.remove('open');
+  editingProductName = null;
+}
+
+function previewProdImg(url) {
+  const preview = document.getElementById('prodImgPreview');
+  if (!preview) return;
+  preview.innerHTML = url
+    ? `<img src="${url}" onerror="this.style.display='none'">`
+    : `<span style="font-size:10px;color:#ccc">預覽</span>`;
+}
+
+function handleProdImgUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('prodImgUrl').value = e.target.result;
+    previewProdImg(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveProduct() {
+  const name = document.getElementById('prodName').value.trim();
+  if (!name) { alert('請填寫商品名稱'); return; }
+
+  const footnotesRaw = document.getElementById('prodFootnotes').value.trim();
+  const data = {
+    name,
+    mainCategory: document.getElementById('prodMainCat').value,
+    series: document.getElementById('prodSeries').value.trim() || '其他',
+    code: document.getElementById('prodCode').value.trim() || undefined,
+    price: document.getElementById('prodPrice').value.trim() || undefined,
+    size: document.getElementById('prodSize').value.trim() || undefined,
+    type: document.getElementById('prodType').value.trim() || undefined,
+    img: document.getElementById('prodImgUrl').value.trim() || undefined,
+    url: document.getElementById('prodUrl').value.trim() || undefined,
+    refill: document.getElementById('prodRefill').value.trim() || undefined,
+    tagline: document.getElementById('prodTagline').value.trim() || undefined,
+    description: document.getElementById('prodDesc').value.trim() || undefined,
+    usage: document.getElementById('prodUsage').value.trim() || undefined,
+    footnotes: footnotesRaw ? footnotesRaw.split('\n').map(s => s.trim()).filter(Boolean) : undefined,
+  };
+  Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
+
+  const origName = editingProductName;
+  const base = (typeof PRODUCTS !== 'undefined' ? PRODUCTS : []);
+  const isOriginal = base.some(p => p.name === origName);
+
+  if (origName) {
+    if (isOriginal) {
+      const overrides = JSON.parse(localStorage.getItem('pola_product_overrides') || '{}');
+      overrides[origName] = data;
+      localStorage.setItem('pola_product_overrides', JSON.stringify(overrides));
+    } else {
+      const newProds = JSON.parse(localStorage.getItem('pola_new_products') || '[]');
+      const idx = newProds.findIndex(p => p.name === origName);
+      if (idx !== -1) newProds[idx] = data;
+      localStorage.setItem('pola_new_products', JSON.stringify(newProds));
+    }
+  } else {
+    const newProds = JSON.parse(localStorage.getItem('pola_new_products') || '[]');
+    newProds.push(data);
+    localStorage.setItem('pola_new_products', JSON.stringify(newProds));
+  }
+
+  closeProductModal();
+  renderProductList();
+}
+
+function deleteProduct() {
+  if (!editingProductName) return;
+  const name = editingProductName;
+  if (!confirm(`確定刪除商品「${name}」？`)) return;
+
+  const base = (typeof PRODUCTS !== 'undefined' ? PRODUCTS : []);
+  const isOriginal = base.some(p => p.name === name);
+
+  if (isOriginal) {
+    const overrides = JSON.parse(localStorage.getItem('pola_product_overrides') || '{}');
+    overrides[name] = { ...(overrides[name] || {}), _deleted: true };
+    localStorage.setItem('pola_product_overrides', JSON.stringify(overrides));
+  } else {
+    const newProds = JSON.parse(localStorage.getItem('pola_new_products') || '[]');
+    localStorage.setItem('pola_new_products', JSON.stringify(newProds.filter(p => p.name !== name)));
+  }
+
+  closeProductModal();
+  renderProductList();
 }
 
 init();

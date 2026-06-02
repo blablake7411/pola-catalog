@@ -24,7 +24,9 @@
   .topbar-right { display: flex; align-items: center; gap: 16px; font-size: 12px; color: #aaa; }
   .topbar-right .month-pill {
     background: #222; color: #fff; padding: 6px 12px; border-radius: 16px;
-    border: 1px solid #333; cursor: pointer;
+    border: 1px solid #333; cursor: pointer; font-family: inherit; font-size: 12px;
+    outline: none; -webkit-appearance: none; appearance: none;
+    color-scheme: dark;
   }
   .topbar-right a { color: #aaa; text-decoration: none; }
   .topbar-right a:hover { color: #fff; }
@@ -254,12 +256,84 @@
   /* ── Hidden ─────────────────────────────────────────────── */
   .hidden { display: none !important; }
 
+  /* ── Product Management ──────────────────────────────────── */
+  .prod-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    margin-top: 4px;
+  }
+  .prod-card {
+    background: #fff; border: 1px solid #eee; border-radius: 8px;
+    overflow: hidden; cursor: pointer;
+    transition: box-shadow .2s, transform .15s;
+  }
+  .prod-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-2px); }
+  .prod-card-img {
+    width: 100%; padding-top: 100%; position: relative; background: #f7f7f7;
+  }
+  .prod-card-img img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: contain; padding: 10px;
+  }
+  .prod-card-img .no-img {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; color: #ccc; font-size: 11px;
+  }
+  .prod-card-info { padding: 10px 12px 12px; }
+  .prod-series-label {
+    font-size: 10px; color: #aaa; letter-spacing: 1px;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .prod-card-name { font-size: 13px; font-weight: 600; line-height: 1.4; margin-bottom: 4px; }
+  .prod-card-price { font-size: 12px; color: #555; }
+  .prod-card-code { font-size: 10px; color: #548dd7; font-weight: 600; margin-top: 2px; }
+
+  /* ── Product modal larger ─────────────────────────────────── */
+  #productModal .modal {
+    width: 680px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+  }
+  .prod-img-preview {
+    width: 90px; height: 90px; border: 1px solid #eee; border-radius: 8px;
+    overflow: hidden; flex-shrink: 0; background: #f7f7f7;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .prod-img-preview img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+  .prod-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 600px) { .prod-two-col { grid-template-columns: 1fr; } }
+
   @media (max-width: 800px) {
-    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .report-row { grid-template-columns: 1fr; }
-    .sidenav { width: 60px; }
-    .sidenav button { padding: 12px 0; justify-content: center; font-size: 10px; }
-    .main { padding: 16px; }
+    .shell { flex-direction: column; }
+    .sidenav {
+      width: 100%; border-right: none; border-bottom: 1px solid #eee;
+      display: flex; flex-direction: row; padding: 0; overflow-x: auto;
+    }
+    .sidenav button {
+      padding: 10px 14px; border-left: none; border-bottom: 3px solid transparent;
+      white-space: nowrap; font-size: 12px; flex-shrink: 0;
+    }
+    .sidenav button.active { border-left: none; border-bottom-color: #111; background: #f5f5f5; }
+    .main { padding: 14px 12px; }
+    .topbar { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+    .topbar-right { font-size: 11px; gap: 8px; flex-wrap: wrap; }
+    .filter-bar { flex-wrap: wrap; gap: 8px; }
+    .filter-bar input { min-width: 0; width: 100%; }
+    .filter-bar select { width: calc(50% - 4px); }
+    .table-wrap { overflow-x: auto; }
+    table { min-width: 600px; }
+    .page-title { font-size: 18px; }
+    .drawer { width: 100vw; }
+    .stat-value { font-size: 18px; }
+    .bar-row .nm { width: 70px; font-size: 11px; }
+    .bar-row .amt { width: 80px; font-size: 11px; }
+  }
+  @media (max-width: 480px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .stat-card { padding: 12px 14px; }
+    .stat-value { font-size: 16px; }
+    .filter-bar select { width: 100%; }
   }
 
   /* ═════ TWEAKS — Mood / Density / Type voice ═════════════════ */
@@ -472,7 +546,7 @@
     <span class="sub">管理後台</span>
   </div>
   <div class="topbar-right">
-    <span class="month-pill" id="monthPill" onclick="cycleMonth()">2026 / 5月 ▾</span>
+    <select id="monthInput" class="month-pill" onchange="changeMonth(this.value)"></select>
     <span>·</span>
     <span>老闆</span>
     <span>·</span>
@@ -483,7 +557,8 @@
 <div class="shell">
   <nav class="sidenav">
     <button class="active" data-view="orders">訂單管理 <span class="badge" id="pendingBadge"></span></button>
-    <button data-view="agents">業務管理</button>
+    <button data-view="settlement">月結交點</button>
+    <button data-view="agents">顧問管理</button>
     <button data-view="customers">客人管理</button>
     <button data-view="report">月結報表</button>
     <button data-view="products">商品管理</button>
@@ -507,7 +582,7 @@
           <div class="stat-sub">客人視角的總價</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">業務實付 (你實收)</div>
+          <div class="stat-label">顧問實付 (你實收)</div>
           <div class="stat-value" id="kpiAgentCost">—</div>
           <div class="stat-sub">原價 × 進貨折扣</div>
         </div>
@@ -528,10 +603,10 @@
           <option>已取消</option>
         </select>
         <select id="agentFilter">
-          <option value="">全部業務</option>
+          <option value="">全部顧問</option>
         </select>
         <div class="spacer"></div>
-        <button class="btn ghost" onclick="exportCSV()">匯出 CSV</button>
+        <button class="btn ghost" onclick="exportOrdersPDF()">匯出 PDF</button>
       </div>
 
       <div class="table-wrap">
@@ -540,7 +615,7 @@
             <tr>
               <th>訂單號</th>
               <th>日期</th>
-              <th>業務</th>
+              <th>顧問</th>
               <th>客人</th>
               <th class="num">原價</th>
               <th class="num">實收</th>
@@ -555,20 +630,20 @@
 
     <!-- ─── Agents View ─────────────────────────────── -->
     <section id="view-agents" class="hidden">
-      <h1 class="page-title">業務管理</h1>
-      <p class="page-sub">本月業績以原價計算；下個月 1 號自動依本月累計重新分級。</p>
+      <h1 class="page-title">顧問管理</h1>
+      <p class="page-sub">業績以原價計算；折扣資格保留 3 個月，連續 3 個月未達標才退回八折。</p>
 
       <div class="filter-bar">
-        <input type="text" id="agentSearch" placeholder="搜尋業務姓名 / 代碼">
+        <input type="text" id="agentSearch" placeholder="搜尋顧問姓名 / 代碼">
         <div class="spacer"></div>
-        <button class="btn" onclick="openNewAgentModal()">+ 新增業務</button>
+        <button class="btn" onclick="openNewAgentModal()">+ 新增顧問</button>
       </div>
 
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>業務</th>
+              <th>顧問</th>
               <th>代碼</th>
               <th>當前等級</th>
               <th>進貨折扣</th>
@@ -584,17 +659,93 @@
       </div>
 
       <div class="panel" style="margin-top:24px">
-        <h3>分級規則</h3>
+        <h3>個人顧問分級規則</h3>
         <table style="font-size:13px">
           <thead>
             <tr><th>等級</th><th>月直轄業績 (原價)</th><th>進貨折扣</th><th>你的毛利率</th></tr>
           </thead>
           <tbody>
-            <tr><td><span class="tier T1">T1</span> 新階</td><td>0 – 7 萬</td><td>8 折</td><td>20%</td></tr>
-            <tr><td><span class="tier T2">T2</span> 中階</td><td>7 萬 – 14 萬</td><td>7.5 折</td><td>15%</td></tr>
-            <tr><td><span class="tier T3">T3</span> 資深</td><td>14 萬以上</td><td>7 折</td><td>10%</td></tr>
+            <tr><td><span class="tier T1">T1</span> 新階</td><td>0 – 10 萬</td><td>8 折</td><td>20%</td></tr>
+            <tr><td><span class="tier T2">T2</span> 中階</td><td>10 – 20 萬</td><td>7.5 折</td><td>15%</td></tr>
+            <tr><td><span class="tier T3">T3</span> 資深</td><td>20 萬以上</td><td>7 折</td><td>10%</td></tr>
           </tbody>
         </table>
+        <h3 style="margin-top:18px">店家顧問分級規則</h3>
+        <table style="font-size:13px">
+          <thead>
+            <tr><th>等級</th><th>月業績 (原價)</th><th>進貨折扣</th><th>你的毛利率</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="tier T2">S1</span> 店家</td><td>0 – 30 萬</td><td>7.5 折</td><td>15%</td></tr>
+            <tr><td><span class="tier T3">S2</span> 店家高階</td><td>30 萬以上</td><td>7 折</td><td>10%</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px;color:#999;margin-top:10px">折扣資格保留最多 3 個月，3 個月內任一月達標即維持等級。</p>
+      </div>
+    </section>
+
+    <!-- ─── Settlement View ──────────────────────────── -->
+    <section id="view-settlement" class="hidden">
+      <h1 class="page-title">月結交點</h1>
+      <p class="page-sub" id="settlementSub">核對本月所有訂單，確認付廠商金額。</p>
+
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-label">本月訂單</div>
+          <div class="stat-value" id="stlOrderCount">—</div>
+          <div class="stat-sub" id="stlOrderSub">筆</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">客人原價總額</div>
+          <div class="stat-value" id="stlRetail">—</div>
+          <div class="stat-sub">業績計算基準</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">你應付廠商（6折）</div>
+          <div class="stat-value" id="stlCost">—</div>
+          <div class="stat-sub">原價 × 0.6</div>
+        </div>
+        <div class="stat-card accent">
+          <div class="stat-label">你的毛利</div>
+          <div class="stat-value" id="stlProfit">—</div>
+          <div class="stat-sub">顧問實付 − 廠商成本</div>
+        </div>
+      </div>
+
+      <!-- Settlement status -->
+      <div id="stlStatusBar" style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #eee;border-radius:8px;padding:14px 18px;margin-bottom:16px">
+        <div>
+          <span id="stlStatusLabel" style="font-weight:600;font-size:14px"></span>
+          <span id="stlSettledAt" style="font-size:11px;color:#aaa;margin-left:8px"></span>
+        </div>
+        <button id="stlSettleBtn" class="btn" onclick="markSettled()" style="font-size:12px;padding:7px 16px"></button>
+      </div>
+
+      <!-- Breakdown by agent -->
+      <div style="background:#fff;border:1px solid #eee;border-radius:8px;overflow:hidden;margin-bottom:16px">
+        <div style="padding:12px 16px;border-bottom:1px solid #eee;font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase">各顧問分攤</div>
+        <div id="stlAgentBreakdown" style="padding:0"></div>
+      </div>
+
+      <!-- Order list -->
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>訂單號</th>
+            <th>日期</th>
+            <th>顧問</th>
+            <th>客人</th>
+            <th class="num">原價</th>
+            <th class="num">顧問折扣</th>
+            <th class="num">你付廠商</th>
+            <th>狀態</th>
+          </tr></thead>
+          <tbody id="stlOrdersTbody" style="cursor:pointer"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:16px;text-align:right">
+        <button class="btn ghost" onclick="exportSettlementPDF()">匯出月結 PDF</button>
       </div>
     </section>
 
@@ -612,7 +763,7 @@
         <div class="stat-card">
           <div class="stat-label">總實收</div>
           <div class="stat-value" id="rAgentCost">—</div>
-          <div class="stat-sub">業務付給你的</div>
+          <div class="stat-sub">顧問付給你的</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">進貨成本</div>
@@ -661,14 +812,23 @@
     <!-- ─── Products View ───────────────────────────── -->
     <section id="view-products" class="hidden">
       <h1 class="page-title">商品管理</h1>
-      <p class="page-sub">改價、上下架。實際接後端後此處直接操作資料庫。</p>
-      <div class="panel">
-        <p style="color:#888;font-size:13px;line-height:1.7">
-          目前商品資料寫在 <span class="mono">products.js</span>。<br>
-          串接後端後，這頁會列出所有商品 + 編輯彈窗 + 上下架開關 + 庫存欄位。
-        </p>
-        <p style="margin-top:14px"><a href="index.html" class="btn ghost" style="text-decoration:none;display:inline-block">→ 查看客人目錄</a></p>
+      <p class="page-sub">點擊商品可編輯資料、更換圖片、更新連結。新增商品後即時反映至客人目錄。</p>
+
+      <div class="filter-bar">
+        <input type="text" id="prodSearch" placeholder="搜尋商品名稱 / 代碼" oninput="renderProductList()">
+        <select id="prodCatFilter" onchange="renderProductList()">
+          <option value="">全部分類</option>
+          <option>臉部保養</option>
+          <option>彩妝</option>
+          <option>身體保養</option>
+          <option>頭髮護理</option>
+        </select>
+        <div class="spacer"></div>
+        <span style="font-size:11px;color:#aaa" id="prodCount"></span>
+        <button class="btn" onclick="openNewProductModal()">+ 新增商品</button>
       </div>
+
+      <div class="prod-grid" id="prodGrid"></div>
     </section>
   </main>
 </div>
@@ -690,18 +850,25 @@
 <!-- New Agent Modal ──────────────────────────────── -->
 <div class="modal-overlay" id="newAgentModal">
   <div class="modal">
-    <h2>新增業務</h2>
+    <h2>新增顧問</h2>
     <div class="field">
       <label>姓名</label>
       <input type="text" id="newAgentName" placeholder="王小美">
     </div>
     <div class="field">
-      <label>業務代碼</label>
+      <label>顧問代碼</label>
       <input type="text" id="newAgentCode" placeholder="A006">
     </div>
     <div class="field">
-      <label>聯絡電話</label>
-      <input type="tel" id="newAgentPhone" placeholder="0912-345-678">
+      <label>聯絡電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
+      <input type="tel" id="newAgentPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
+    </div>
+    <div class="field">
+      <label>顧問類型</label>
+      <select id="newAgentType" onchange="updateNewAgentTierOptions()">
+        <option value="personal">個人顧問</option>
+        <option value="store">店家顧問</option>
+      </select>
     </div>
     <div class="field">
       <label>起始等級</label>
@@ -720,22 +887,30 @@
 
 <!-- Edit Agent Modal ─────────────────────────────── -->
 <div class="modal-overlay" id="editAgentModal">
-  <div class="modal" style="width:440px">
-    <h2>編輯業務資料</h2>
+  <div class="modal" style="width:440px;max-width:90vw">
+    <h2>編輯顧問資料</h2>
     <input type="hidden" id="editAgentOriginalCode">
     <div class="field">
       <label>姓名</label>
       <input type="text" id="editAgentName">
     </div>
     <div class="field">
-      <label>業務代碼 <span style="color:#aaa;font-weight:400">（修改會影響專屬連結與歷史訂單關聯）</span></label>
+      <label>顧問代碼 <span style="color:#aaa;font-weight:400">（修改會影響專屬連結與歷史訂單關聯）</span></label>
       <input type="text" id="editAgentCode">
     </div>
     <div class="field">
-      <label>聯絡電話</label>
-      <input type="tel" id="editAgentPhone">
+      <label>聯絡電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
+      <input type="tel" id="editAgentPhone" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <div class="field">
+      <label>顧問類型</label>
+      <select id="editAgentType" onchange="toggleEditTierField()">
+        <option value="personal">個人顧問</option>
+        <option value="store">店家顧問</option>
+        <option value="owner">老闆（6折）</option>
+      </select>
+    </div>
+    <div class="field" id="editAgentTierField">
       <label>等級</label>
       <select id="editAgentTier">
         <option value="1">T1 新階 — 8折進貨</option>
@@ -772,11 +947,11 @@
       <input type="text" id="newCustomerName" placeholder="陳太太">
     </div>
     <div class="field">
-      <label>電話</label>
-      <input type="tel" id="newCustomerPhone" placeholder="0912-345-678">
+      <label>電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
+      <input type="tel" id="newCustomerPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <div class="field">
-      <label>所屬業務</label>
+      <label>所屬顧問</label>
       <select id="newCustomerAgentSel"></select>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px">
@@ -786,11 +961,108 @@
   </div>
 </div>
 
-<!-- Edit Customer Modal -->
+<!-- Product Edit Modal ───────────────────────────── -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 id="productModalTitle">新增商品</h2>
+      <button style="background:none;border:none;font-size:22px;color:#aaa;cursor:pointer" onclick="closeProductModal()">×</button>
+    </div>
+    <input type="hidden" id="prodEditOrigName">
+
+    <div class="prod-two-col">
+      <div class="field" style="grid-column:1/-1">
+        <label>商品名稱 *</label>
+        <input type="text" id="prodName" placeholder="B.A 極光全能精萃">
+      </div>
+      <div class="field">
+        <label>商品代碼</label>
+        <input type="text" id="prodCode" placeholder="6403">
+      </div>
+      <div class="field">
+        <label>定價</label>
+        <input type="text" id="prodPrice" placeholder="NTD 22,000">
+      </div>
+      <div class="field">
+        <label>大分類</label>
+        <select id="prodMainCat">
+          <option>臉部保養</option><option>彩妝</option>
+          <option>身體保養</option><option>頭髮護理</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>系列名稱</label>
+        <input type="text" id="prodSeries" placeholder="B.A grandluxe">
+      </div>
+      <div class="field">
+        <label>容量 / 規格</label>
+        <input type="text" id="prodSize" placeholder="50 g">
+      </div>
+      <div class="field">
+        <label>商品類型</label>
+        <input type="text" id="prodType" placeholder="乳液・精華液">
+      </div>
+    </div>
+
+    <!-- Image -->
+    <div class="field">
+      <label>商品圖片</label>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div class="prod-img-preview" id="prodImgPreview">
+          <span style="font-size:10px;color:#ccc">預覽</span>
+        </div>
+        <div style="flex:1">
+          <input type="text" id="prodImgUrl" placeholder="貼上圖片 URL" oninput="previewProdImg(this.value)" style="margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#666">
+            <input type="file" id="prodImgFile" accept="image/*" style="display:none" onchange="handleProdImgUpload(this)">
+            <button type="button" class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="document.getElementById('prodImgFile').click()">選擇本機圖片</button>
+            <span style="color:#aaa">圖片會轉成 base64 存在裝置上</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>官網連結</label>
+      <input type="url" id="prodUrl" placeholder="https://www.pola.com.tw/products/1037/index.html">
+    </div>
+    <div class="field">
+      <label>補充瓶資訊</label>
+      <input type="text" id="prodRefill" placeholder="補充瓶 NTD 21,000（序號 6404）">
+    </div>
+    <div class="field">
+      <label>標語</label>
+      <textarea id="prodTagline" rows="2" placeholder="商品標語（加粗標題式文字）"></textarea>
+    </div>
+    <div class="field">
+      <label>說明</label>
+      <textarea id="prodDesc" rows="3" placeholder="商品說明文字..."></textarea>
+    </div>
+    <div class="field">
+      <label>建議用量</label>
+      <input type="text" id="prodUsage" placeholder="建議用量：按壓１～２下">
+    </div>
+    <div class="field">
+      <label>補充說明（每行一條，前面加 * 號）</label>
+      <textarea id="prodFootnotes" rows="3" placeholder="*美容成分：保濕成分&#10;*立體美肌：以水潤肌膚呈現立體感"></textarea>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:20px;align-items:center">
+      <button class="btn danger" id="prodDeleteBtn" style="padding:8px 14px" onclick="deleteProduct()">刪除商品</button>
+      <div style="flex:1"></div>
+      <button class="btn ghost" onclick="closeProductModal()">取消</button>
+      <button class="btn" onclick="saveProduct()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Order Modal -->
 <div class="modal-overlay" id="editCustomerModal">
-  <div class="modal">
-    <h2>編輯收件人資料</h2>
+  <div class="modal" style="width:520px;max-width:95vw;max-height:88vh;overflow-y:auto">
+    <h2>編輯訂單資料</h2>
     <input type="hidden" id="editCustOrderNum">
+
+    <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:0 0 8px">收件人</div>
     <div class="field">
       <label>姓名</label>
       <input type="text" id="editCustName">
@@ -805,15 +1077,36 @@
     </div>
     <div class="field">
       <label>備註</label>
-      <textarea id="editCustNotes" rows="2"></textarea>
+      <textarea id="editCustNotes" rows="2" style="width:100%;border:1px solid #ddd;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;resize:vertical"></textarea>
     </div>
-    <div style="display:flex;gap:8px;margin-top:16px">
+
+    <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:16px 0 8px">業務與付款</div>
+    <div class="field">
+      <label>業務顧問</label>
+      <select id="editCustAgent"></select>
+    </div>
+    <div class="field">
+      <label>付款方式</label>
+      <input type="text" id="editCustPayment" placeholder="例：匯款、現金、Line Pay">
+    </div>
+
+    <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:16px 0 8px">商品明細</div>
+    <div id="editOrderItems"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+      <select id="editNewProduct" style="flex:1;border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none"></select>
+      <input type="number" id="editNewQty" value="1" min="1" style="width:54px;border:1px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;text-align:center;font-family:inherit;outline:none">
+      <button class="btn ghost" style="white-space:nowrap;padding:7px 14px" onclick="addEditItem()">+ 加入</button>
+    </div>
+    <div id="editOrderTotal" style="margin-top:12px;font-size:13px;text-align:right;color:#444;font-weight:500"></div>
+
+    <div style="display:flex;gap:8px;margin-top:20px">
       <button class="btn ghost" style="flex:1" onclick="closeEditCustomerModal()">取消</button>
       <button class="btn" style="flex:1" onclick="saveEditCustomer()">儲存</button>
     </div>
   </div>
 </div>
 
+<script src="products.js?v=2"></script>
 <script src="admin.js"></script>
 
 <!-- Editorial font for "editorial" type voice -->
