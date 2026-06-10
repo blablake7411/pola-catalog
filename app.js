@@ -816,10 +816,12 @@ function showEditProfile() {
   document.getElementById('editNewPassword2').value = '';
   document.getElementById('editErr').textContent = '';
   document.getElementById('editProfilePanel').style.display = '';
+  document.getElementById('editProfileBtn').style.display = 'none';
 }
 
 function cancelEditProfile() {
   document.getElementById('editProfilePanel').style.display = 'none';
+  document.getElementById('editProfileBtn').style.display = '';
 }
 
 async function saveCustomerProfile() {
@@ -851,6 +853,7 @@ async function saveCustomerProfile() {
       btn.textContent = '儲存';
       btn.disabled = false;
       document.getElementById('editProfilePanel').style.display = 'none';
+      document.getElementById('editProfileBtn').style.display = '';
     }, 1500);
   } catch (e) {
     err.textContent = '儲存失敗，請稍後再試';
@@ -891,29 +894,29 @@ function showOrderDetail(idx) {
   const color = statusColor(o.status);
   document.getElementById('odRows').innerHTML = `
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-      <span style="display:inline-flex;align-items:center;gap:6px;background:${color}1a;color:${color};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:${color}22;color:${color};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600">
         <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span>${o.status}
       </span>
     </div>`;
   document.getElementById('odItems').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;font-size:12px;color:#888;border-bottom:1px solid #f0f0f0;padding-bottom:6px;margin-bottom:6px">
-      <span>商品</span><span style="text-align:right">數量</span><span style="text-align:right">原價</span>
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;font-size:12px;color:#aaa;border-bottom:1px solid #f0f0f0;padding-bottom:6px;margin-bottom:4px">
+      <span>商品</span><span style="text-align:right">數量</span><span style="text-align:right">單價</span>
     </div>
     ${o.items.map(i => `
-      <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;font-size:13px;color:#444;padding:5px 0;border-bottom:1px solid #fafafa">
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;font-size:13px;color:#444;padding:7px 0;border-bottom:1px solid #f5f5f5">
         <div>
           <div>${i.product_name}</div>
-          ${i.variant_label ? `<div style="font-size:11px;color:#aaa">${i.variant_label}</div>` : ''}
+          ${i.variant_label ? `<div style="font-size:11px;color:#aaa;margin-top:2px">${i.variant_label}</div>` : ''}
         </div>
-        <div style="text-align:right;align-self:center">×${i.quantity}</div>
-        <div style="text-align:right;align-self:center">NTD ${(i.unit_price || 0).toLocaleString()}</div>
+        <div style="text-align:right;align-self:center;white-space:nowrap">×${i.quantity}</div>
+        <div style="text-align:right;align-self:center;white-space:nowrap">NTD ${(i.unit_price || 0).toLocaleString()}</div>
       </div>`).join('')}`;
   document.getElementById('odTotal').textContent = `NTD ${(o.retail_total || 0).toLocaleString()}`;
-  document.getElementById('orderDetailOverlay').style.display = '';
+  document.getElementById('orderDetailOverlay').classList.add('open');
 }
 
 function closeOrderDetail() {
-  document.getElementById('orderDetailOverlay').style.display = 'none';
+  document.getElementById('orderDetailOverlay').classList.remove('open');
 }
 
 // ── Agent login / dashboard ───────────────────────────────────
