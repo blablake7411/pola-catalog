@@ -34,10 +34,11 @@ function parseRefill(str) {
 
 function renderRefillSelect(p) {
   const r = parseRefill(p.refill);
-  const mainLabel = `主裝${p.code ? '（序號 ' + p.code + '）' : ''}`;
-  const refillCodeStr = r.code ? `（序號 ${r.code}）` : '';
-  const refillPriceStr = r.priceStr ? ` NTD ${r.priceStr}` : '';
-  const refillLabel = `${r.label}${refillPriceStr}${refillCodeStr}`;
+  const mainCodePrefix = p.code ? p.code + '  ' : '';
+  const mainLabel = `${mainCodePrefix}主裝${p.price ? '  ' + p.price : ''}`;
+  const refillCodePrefix = r.code ? r.code + '  ' : '';
+  const refillPriceStr = r.priceStr ? '  NTD ' + r.priceStr : '';
+  const refillLabel = `${refillCodePrefix}${r.label}${refillPriceStr}`;
   return `<select class="product-variant-select refill-select"
     onclick="event.stopPropagation();event.preventDefault()"
     onchange="event.stopPropagation();refillSelectChange(this)"
@@ -103,8 +104,8 @@ function selectSwatch(thumb) {
 
 function renderSizeSwitcher(variants) {
   const opts = variants.map((v, i) => {
-    const codeStr = v.code ? `（序號 ${v.code}）` : '';
-    return `<option value="${i}">${v.label}  ${v.price}${codeStr}</option>`;
+    const codePrefix = v.code ? v.code + '  ' : '';
+    return `<option value="${i}">${codePrefix}${v.label}  ${v.price}</option>`;
   }).join('');
   return `<select class="product-variant-select variant-size-select"
     onclick="event.stopPropagation();event.preventDefault()"
@@ -461,14 +462,15 @@ function cardQtyChange(btn, productName, delta) {
     }
   } else {
     unitPrice = parsePrice(product.price);
-    const refillSel = card.querySelector('.refill-select');
-    if (refillSel && refillSel.value === 'refill') {
-      const refillPrice = parseInt(refillSel.dataset.refillPrice);
-      if (refillPrice) unitPrice = refillPrice;
-      code = refillSel.dataset.refillCode || code;
-      variantLabel = refillSel.dataset.refillLabel || null;
-      vkey = variantLabel || '';
-    }
+  }
+
+  const refillSel = card.querySelector('.refill-select');
+  if (refillSel && refillSel.value === 'refill') {
+    const refillPrice = parseInt(refillSel.dataset.refillPrice);
+    if (refillPrice) unitPrice = refillPrice;
+    code = refillSel.dataset.refillCode || code;
+    variantLabel = refillSel.dataset.refillLabel || null;
+    vkey = variantLabel || '';
   }
 
   if (!unitPrice && delta > 0) return;
