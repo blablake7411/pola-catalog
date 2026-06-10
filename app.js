@@ -643,7 +643,7 @@ async function submitOrder() {
     document.getElementById('successAgentMsg').textContent = agentName
       ? `顧問 ${agentName} 會盡快與您確認金額及出貨安排。`
       : '收到您的詢單！顧問會盡快與您聯繫確認。';
-    document.getElementById('successOrderNum').textContent = `詢單編號：${order.order_number}`;
+    document.getElementById('successOrderNum').textContent = `訂單編號：${order.order_number}`;
     document.getElementById('checkoutForm').style.display = 'none';
     document.getElementById('checkoutSuccess').style.display = '';
   } catch (e) {
