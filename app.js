@@ -42,7 +42,7 @@ function renderRefillSelect(p) {
   const refillPriceStr = r.priceStr ? '  NTD ' + r.priceStr : '';
   const refillLabel = `${refillCodePrefix}${r.label}${refillPriceStr}`;
   const note = isPowder
-    ? `<p style="font-size:11px;color:#aaa;margin:2px 0 4px;line-height:1.5">此粉蕊與粉餅盒是分開販售的</p>`
+    ? `<p style="font-size:11px;color:#aaa;margin:2px 0 4px;line-height:1.5">粉蕊及粉盒為分開販售</p>`
     : '';
   return `<select class="product-variant-select refill-select"
     onclick="event.stopPropagation();event.preventDefault()"
