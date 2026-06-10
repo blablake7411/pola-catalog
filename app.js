@@ -658,9 +658,12 @@ async function submitOrder() {
 
 // ── Portal ────────────────────────────────────────────────────
 
+var customerToken = sessionStorage.getItem('customerToken') || null;
+
 function openPortal(tab = 'customer') {
   document.getElementById('portalOverlay').classList.add('open');
   switchPortalTab(tab);
+  if (tab === 'customer' && customerToken) loadCustomerProfile();
   if (tab === 'agent' && agentModeInfo) renderAgentDashboard(agentModeInfo.code);
 }
 
@@ -679,59 +682,161 @@ function switchPortalTab(tab) {
   document.getElementById('portalAgentTab').style.display = tab === 'agent' ? '' : 'none';
 }
 
-// ── Customer profile ──────────────────────────────────────────
+// ── Customer auth ─────────────────────────────────────────────
 
-async function lookupCustomerProfile() {
+function showCustomerLogin() {
+  document.getElementById('portalCustomerRegister').style.display = 'none';
+  document.getElementById('portalCustomerProfile').style.display = 'none';
+  document.getElementById('portalCustomerLogin').style.display = '';
+}
+
+function showCustomerRegister() {
+  document.getElementById('portalCustomerLogin').style.display = 'none';
+  document.getElementById('portalCustomerProfile').style.display = 'none';
+  document.getElementById('portalCustomerRegister').style.display = '';
+}
+
+async function submitCustomerLogin() {
   const phone = document.getElementById('customerPhone').value.trim();
+  const password = document.getElementById('customerPassword').value;
   const err = document.getElementById('customerErr');
-  if (!phone) { err.textContent = '請輸入電話號碼'; return; }
+  if (!phone || !password) { err.textContent = '請輸入電話和密碼'; return; }
   err.textContent = '';
   try {
-    const res = await fetch(`${SHOP_API}/api/customers/profile?phone=${encodeURIComponent(phone)}`);
-    if (!res.ok) throw new Error();
+    const res = await fetch(`${SHOP_API}/api/customers/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password }),
+    });
     const data = await res.json();
-
-    if (data.order_count === 0) {
-      err.textContent = '查無此號碼訂單，請輸入正確的電話號碼';
-      return;
-    }
-
-    document.getElementById('profileName').textContent = data.name || phone;
-    document.getElementById('profilePhone').textContent = data.phone;
-    document.getElementById('profileMonthly').textContent = fmtNTD(data.monthly_retail);
-    document.getElementById('profileTotal').textContent = fmtNTD(data.total_retail);
-
-    const ordersEl = document.getElementById('profileOrders');
-    ordersEl.innerHTML = data.orders.slice(0, 8).map(o => `
-      <div class="portal-order-item" style="flex-direction:column;align-items:stretch">
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
-          <span style="font-weight:600">${o.order_number}</span>
-          <span style="font-weight:600">NTD ${(o.retail_total || 0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:2px">
-          <span style="font-size:11px;color:#aaa">${(o.created_at || '').slice(0,10)}</span>
-          <span style="font-size:11px;color:#aaa">${o.status}</span>
-        </div>
-        <div style="margin-top:5px;padding-top:5px;border-top:1px dashed #f0f0f0">
-          ${o.items.map(item => `
-            <div style="font-size:12px;color:#666;padding:2px 0;display:flex;justify-content:space-between">
-              <span>${item.product_name}${item.variant_label ? ' · ' + item.variant_label : ''}</span>
-              <span>×${item.quantity}</span>
-            </div>`).join('')}
-        </div>
-      </div>`).join('');
-
-    document.getElementById('portalCustomerLogin').style.display = 'none';
-    document.getElementById('portalCustomerProfile').style.display = '';
+    if (!res.ok) { err.textContent = data.detail || '登入失敗'; return; }
+    customerToken = data.token;
+    sessionStorage.setItem('customerToken', customerToken);
+    await loadCustomerProfile();
   } catch (e) {
-    err.textContent = '查詢失敗，請稍後再試';
+    err.textContent = '連線失敗，請稍後再試';
   }
 }
 
-function resetCustomerProfile() {
-  document.getElementById('portalCustomerLogin').style.display = '';
-  document.getElementById('portalCustomerProfile').style.display = 'none';
+async function submitCustomerRegister() {
+  const phone = document.getElementById('regPhone').value.trim();
+  const name = document.getElementById('regName').value.trim();
+  const address = document.getElementById('regAddress').value.trim();
+  const agent_code = document.getElementById('regAgentCode').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const password2 = document.getElementById('regPassword2').value;
+  const err = document.getElementById('regErr');
+  if (!phone || !name || !password) { err.textContent = '請填寫必填欄位（*）'; return; }
+  if (password !== password2) { err.textContent = '兩次密碼不一致'; return; }
+  err.textContent = '';
+  try {
+    const res = await fetch(`${SHOP_API}/api/customers/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, name, address, agent_code, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.detail || '註冊失敗'; return; }
+    customerToken = data.token;
+    sessionStorage.setItem('customerToken', customerToken);
+    await loadCustomerProfile();
+  } catch (e) {
+    err.textContent = '連線失敗，請稍後再試';
+  }
+}
+
+async function loadCustomerProfile() {
+  if (!customerToken) return;
+  try {
+    const res = await fetch(`${SHOP_API}/api/customers/me?token=${encodeURIComponent(customerToken)}`);
+    if (!res.ok) {
+      customerToken = null;
+      sessionStorage.removeItem('customerToken');
+      showCustomerLogin();
+      return;
+    }
+    const data = await res.json();
+    document.getElementById('profileName').textContent = data.name;
+    document.getElementById('profilePhone').textContent = data.phone;
+    document.getElementById('profileMonthly').textContent = fmtNTD(data.monthly_retail);
+    document.getElementById('profileTotal').textContent = fmtNTD(data.total_retail);
+    document.getElementById('editName').value = data.name || '';
+    document.getElementById('editAddress').value = data.address || '';
+
+    const ordersEl = document.getElementById('profileOrders');
+    if (!data.orders.length) {
+      ordersEl.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px 0">尚無訂單記錄</div>';
+    } else {
+      ordersEl.innerHTML = data.orders.slice(0, 8).map(o => `
+        <div class="portal-order-item" style="flex-direction:column;align-items:stretch">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-weight:600">${o.order_number}</span>
+            <span style="font-weight:600">NTD ${(o.retail_total || 0).toLocaleString()}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:2px">
+            <span style="font-size:11px;color:#aaa">${(o.created_at || '').slice(0,10)}</span>
+            <span style="font-size:11px;color:#aaa">${o.status}</span>
+          </div>
+          <div style="margin-top:5px;padding-top:5px;border-top:1px dashed #f0f0f0">
+            ${o.items.map(i => `
+              <div style="font-size:12px;color:#666;padding:2px 0;display:flex;justify-content:space-between">
+                <span>${i.product_name}${i.variant_label ? ' · ' + i.variant_label : ''}</span>
+                <span>×${i.quantity}</span>
+              </div>`).join('')}
+          </div>
+        </div>`).join('');
+    }
+
+    document.getElementById('portalCustomerLogin').style.display = 'none';
+    document.getElementById('portalCustomerRegister').style.display = 'none';
+    document.getElementById('portalCustomerProfile').style.display = '';
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function saveCustomerProfile() {
+  const btn = document.getElementById('saveProfileBtn');
+  const err = document.getElementById('editErr');
+  const name = document.getElementById('editName').value.trim();
+  const address = document.getElementById('editAddress').value.trim();
+  if (!name) { err.textContent = '姓名不可為空'; return; }
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = '儲存中…';
+  try {
+    const res = await fetch(`${SHOP_API}/api/customers/me`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: customerToken, name, address }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    document.getElementById('profileName').textContent = data.name;
+    btn.textContent = '已儲存 ✓';
+    setTimeout(() => { btn.textContent = '儲存'; btn.disabled = false; }, 2000);
+  } catch (e) {
+    err.textContent = '儲存失敗，請稍後再試';
+    btn.textContent = '儲存';
+    btn.disabled = false;
+  }
+}
+
+async function resetCustomerProfile() {
+  if (customerToken) {
+    try {
+      await fetch(`${SHOP_API}/api/customers/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: customerToken }),
+      });
+    } catch (e) {}
+  }
+  customerToken = null;
+  sessionStorage.removeItem('customerToken');
   document.getElementById('customerPhone').value = '';
+  document.getElementById('customerPassword').value = '';
+  showCustomerLogin();
 }
 
 function fmtNTD(n) { return 'NTD ' + Math.round(n || 0).toLocaleString(); }

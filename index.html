@@ -224,23 +224,44 @@
         <button class="portal-tab-btn" id="portalTabAgent" onclick="switchPortalTab('agent')">顧問專區</button>
       </div>
 
-      <!-- 客人查詢 tab -->
+      <!-- 客人 tab -->
       <div id="portalCustomerTab" class="portal-body">
+
+        <!-- 登入 -->
         <div id="portalCustomerLogin">
-          <p style="font-size:13px;color:#666;margin:0 0 14px;line-height:1.6">輸入您的電話號碼，查看您的歷史訂單和累積消費記錄。</p>
-          <input class="portal-input" id="customerPhone" type="tel" placeholder="您的手機號碼" oninput="this.value=this.value.replace(/\D/g,'')">
+          <p style="font-size:13px;color:#666;margin:0 0 14px;line-height:1.6">請登入會員帳號以查看您的訂單與個人資料。</p>
+          <input class="portal-input" id="customerPhone" type="tel" placeholder="手機號碼" oninput="this.value=this.value.replace(/\D/g,'')">
+          <input class="portal-input" id="customerPassword" type="password" placeholder="密碼" style="margin-top:10px">
           <div class="portal-err" id="customerErr"></div>
-          <button class="portal-btn" onclick="lookupCustomerProfile()">查詢</button>
+          <button class="portal-btn" onclick="submitCustomerLogin()">登入</button>
+          <div style="text-align:center;margin-top:14px;font-size:13px;color:#888">
+            還沒有帳號？<span style="color:#111;text-decoration:underline;cursor:pointer" onclick="showCustomerRegister()">立即註冊</span>
+          </div>
         </div>
+
+        <!-- 註冊 -->
+        <div id="portalCustomerRegister" style="display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;color:#888;font-size:13px" onclick="showCustomerLogin()">← 返回登入</div>
+          <input class="portal-input" id="regPhone" type="tel" placeholder="手機號碼（登入帳號）*" oninput="this.value=this.value.replace(/\D/g,'')">
+          <input class="portal-input" id="regName" type="text" placeholder="姓名 *" style="margin-top:10px">
+          <input class="portal-input" id="regAddress" type="text" placeholder="常用收件地址" style="margin-top:10px">
+          <input class="portal-input" id="regAgentCode" type="text" placeholder="業務代碼（由顧問提供，選填）" style="margin-top:10px" oninput="this.value=this.value.toUpperCase()">
+          <input class="portal-input" id="regPassword" type="password" placeholder="密碼（至少 6 位）*" style="margin-top:10px">
+          <input class="portal-input" id="regPassword2" type="password" placeholder="確認密碼 *" style="margin-top:10px">
+          <div class="portal-err" id="regErr"></div>
+          <button class="portal-btn" onclick="submitCustomerRegister()">建立帳號</button>
+        </div>
+
+        <!-- 已登入 profile -->
         <div id="portalCustomerProfile" style="display:none">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
             <div>
               <strong id="profileName" style="font-size:15px;display:block"></strong>
               <span id="profilePhone" style="font-size:12px;color:#888;margin-top:2px;display:block"></span>
             </div>
             <span style="font-size:12px;color:#aaa;cursor:pointer" onclick="resetCustomerProfile()">登出</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
             <div class="portal-stat">
               <div class="label">本月消費</div>
               <div class="value" id="profileMonthly" style="font-size:17px">—</div>
@@ -250,6 +271,16 @@
               <div class="value" id="profileTotal" style="font-size:17px">—</div>
             </div>
           </div>
+
+          <!-- 編輯資料 -->
+          <div style="background:#f8f8f8;border-radius:12px;padding:14px;margin-bottom:16px">
+            <div class="portal-section-title" style="margin-top:0">我的資料</div>
+            <input class="portal-input" id="editName" type="text" placeholder="姓名" style="margin-bottom:8px">
+            <input class="portal-input" id="editAddress" type="text" placeholder="常用收件地址">
+            <div class="portal-err" id="editErr" style="margin-top:4px"></div>
+            <button id="saveProfileBtn" onclick="saveCustomerProfile()" style="margin-top:10px;width:100%;padding:10px;background:#111;color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer">儲存</button>
+          </div>
+
           <div class="portal-section-title">近期訂單</div>
           <div id="profileOrders"></div>
         </div>
