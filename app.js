@@ -34,11 +34,16 @@ function parseRefill(str) {
 
 function renderRefillSelect(p) {
   const r = parseRefill(p.refill);
+  const isPowder = r.label.includes('盒');
+  const mainName = isPowder ? '粉蕊' : '主裝';
   const mainCodePrefix = p.code ? p.code + '  ' : '';
-  const mainLabel = `${mainCodePrefix}主裝${p.price ? '  ' + p.price : ''}`;
+  const mainLabel = `${mainCodePrefix}${mainName}${p.price ? '  ' + p.price : ''}`;
   const refillCodePrefix = r.code ? r.code + '  ' : '';
   const refillPriceStr = r.priceStr ? '  NTD ' + r.priceStr : '';
   const refillLabel = `${refillCodePrefix}${r.label}${refillPriceStr}`;
+  const note = isPowder
+    ? `<p style="font-size:11px;color:#aaa;margin:2px 0 4px;line-height:1.5">此粉蕊與粉餅盒是分開販售的</p>`
+    : '';
   return `<select class="product-variant-select refill-select"
     onclick="event.stopPropagation();event.preventDefault()"
     onchange="event.stopPropagation();refillSelectChange(this)"
@@ -46,7 +51,7 @@ function renderRefillSelect(p) {
     data-main-price="${p.price || ''}" data-main-code="${p.code || ''}">
     <option value="main">${mainLabel}</option>
     <option value="refill">${refillLabel}</option>
-  </select>`;
+  </select>${note}`;
 }
 
 function refillSelectChange(sel) {

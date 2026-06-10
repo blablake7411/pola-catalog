@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>POLA 商品目錄</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
   <meta name="description" content="POLA 台灣正品商品目錄，點擊查看完整商品資訊">
   <link rel="stylesheet" href="style.css">
   <style>
@@ -175,20 +176,36 @@
       </div>
       <div id="checkoutSuccess" class="order-success" style="display:none;position:relative">
         <button onclick="closeCheckout()" style="position:absolute;top:-4px;right:-4px;background:transparent;border:none;font-size:26px;color:rgba(0,0,0,0.2);cursor:pointer;padding:4px 8px;line-height:1" title="關閉">×</button>
-        <div class="checkmark">✓</div>
-        <h3>詢單已送出！</h3>
-        <p style="font-size:13px;color:#888;margin:6px 0 4px">若有配合的顧問，請務必填上顧問代碼，以確保訂單正確歸屬。</p>
-        <p id="successAgentMsg" style="font-size:14px;color:#555;margin:10px 0 4px"></p>
-        <p id="successOrderNum" style="font-weight:700;font-size:13px;color:#aaa"></p>
-        <div style="margin:20px auto;text-align:center;max-width:220px">
-          <p style="font-size:13px;color:#555;margin:0 0 14px;line-height:1.7">請加入我們的 LINE 官方帳號<br>並傳送您的訂單編號<br>會有專人為您確認金額及安排出貨</p>
-          <img src="assets/line-qr.png" alt="LINE QR Code" style="width:140px;height:140px;border-radius:10px;border:1px solid #eee;display:block;margin:0 auto">
-          <a href="https://lin.ee/qxRpzSj" target="_blank" rel="noopener"
-            style="display:inline-block;margin-top:12px;background:#06c755;color:#fff;text-decoration:none;border-radius:10px;padding:10px 24px;font-size:13px;font-weight:600">
-            點這裡加入 LINE 官方
-          </a>
+        <div class="checkmark" style="font-size:36px;margin-bottom:8px">✓</div>
+        <h3 style="font-size:16px;margin-bottom:16px">詢單已送出！</h3>
+
+        <!-- 訂單編號 - 最重要 -->
+        <div style="background:#f5f5f5;border-radius:14px;padding:16px 20px;margin:0 0 20px;text-align:center">
+          <div style="font-size:11px;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">您的訂單編號</div>
+          <div id="successOrderNum" style="font-size:22px;font-weight:800;color:#111;letter-spacing:2px;font-family:monospace"></div>
+          <p id="successAgentMsg" style="font-size:12px;color:#888;margin:8px 0 0;line-height:1.5"></p>
         </div>
-        <button onclick="closeCheckout()" style="background:#111;color:#fff;border:none;border-radius:12px;padding:12px 32px;font-size:14px;font-weight:600;cursor:pointer">
+
+        <!-- 下一步 -->
+        <div style="text-align:left;margin-bottom:20px">
+          <div style="font-size:11px;color:#aaa;letter-spacing:1.5px;margin-bottom:10px">接下來</div>
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+            <div style="width:22px;height:22px;background:#111;color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div>
+            <div style="font-size:13px;color:#444;line-height:1.6">加入 LINE 官方帳號</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <div style="width:22px;height:22px;background:#111;color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div>
+            <div style="font-size:13px;color:#444;line-height:1.6">傳送您的<strong>訂單編號</strong>給顧問，顧問會確認金額並安排出貨</div>
+          </div>
+        </div>
+
+        <!-- QR + 按鈕 -->
+        <img src="assets/line-qr.png" alt="LINE QR Code" style="width:120px;height:120px;border-radius:10px;border:1px solid #eee;display:block;margin:0 auto 12px">
+        <a href="https://lin.ee/qxRpzSj" target="_blank" rel="noopener"
+          style="display:block;background:#06c755;color:#fff;text-decoration:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;text-align:center;margin-bottom:10px">
+          點這裡加入 LINE 官方
+        </a>
+        <button onclick="closeCheckout()" style="background:#fff;color:#aaa;border:1px solid #eee;border-radius:12px;padding:10px;font-size:13px;width:100%;cursor:pointer">
           繼續瀏覽
         </button>
       </div>
