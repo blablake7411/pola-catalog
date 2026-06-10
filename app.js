@@ -38,12 +38,28 @@ function renderRefillSelect(p) {
   const refillCodeStr = r.code ? `（序號 ${r.code}）` : '';
   const refillPriceStr = r.priceStr ? ` NTD ${r.priceStr}` : '';
   const refillLabel = `${r.label}${refillPriceStr}${refillCodeStr}`;
-  return `<select class="refill-select" onclick="event.stopPropagation();event.preventDefault()" onchange="event.stopPropagation()"
+  return `<select class="product-variant-select refill-select"
+    onclick="event.stopPropagation();event.preventDefault()"
+    onchange="event.stopPropagation();refillSelectChange(this)"
     data-refill-price="${r.price || ''}" data-refill-code="${r.code || ''}" data-refill-label="${r.label}"
-    style="margin:4px 0;font-size:12px;border:1px solid #ddd;border-radius:6px;padding:4px 6px;width:100%;background:#fff;color:#555;font-family:inherit;cursor:pointer">
+    data-main-price="${p.price || ''}" data-main-code="${p.code || ''}">
     <option value="main">${mainLabel}</option>
     <option value="refill">${refillLabel}</option>
   </select>`;
+}
+
+function refillSelectChange(sel) {
+  const card = sel.closest('.product-card');
+  const priceEl = card.querySelector('.product-price');
+  const codeEl = card.querySelector('.product-code');
+  if (sel.value === 'refill') {
+    const price = parseInt(sel.dataset.refillPrice);
+    if (price && priceEl) priceEl.textContent = 'NTD ' + price.toLocaleString();
+    if (sel.dataset.refillCode && codeEl) codeEl.textContent = sel.dataset.refillCode;
+  } else {
+    if (priceEl && sel.dataset.mainPrice) priceEl.textContent = sel.dataset.mainPrice;
+    if (codeEl && sel.dataset.mainCode) codeEl.textContent = sel.dataset.mainCode;
+  }
 }
 
 function seriesId(s) {
@@ -86,36 +102,31 @@ function selectSwatch(thumb) {
 }
 
 function renderSizeSwitcher(variants) {
-  const first = variants[0];
-  const n = variants.length;
-  const inner = `<span class="var-label">${first.label}</span><span class="var-price">${first.price}</span><span class="var-code">${first.code}</span>`;
-  return `<div class="variant-sw" data-vidx="0">
-      <button class="var-btn" onclick="event.stopPropagation();event.preventDefault();varNav(this,-1)">&#8249;</button>
-      <div class="var-info">${inner}</div>
-      <button class="var-btn" onclick="event.stopPropagation();event.preventDefault();varNav(this,1)">&#8250;</button>
-      <span class="var-count">1 / ${n}</span>
-    </div>`;
+  const opts = variants.map((v, i) => {
+    const codeStr = v.code ? `（序號 ${v.code}）` : '';
+    return `<option value="${i}">${v.label}  ${v.price}${codeStr}</option>`;
+  }).join('');
+  return `<select class="product-variant-select variant-size-select"
+    onclick="event.stopPropagation();event.preventDefault()"
+    onchange="event.stopPropagation();varSizeChange(this)">
+    ${opts}
+  </select>`;
 }
 
-function varNav(btn, dir) {
-  const card = btn.closest('.product-card');
-  const sw = btn.closest('.variant-sw');
+function varSizeChange(sel) {
+  const card = sel.closest('.product-card');
   const pkey = card.dataset.pkey;
   const product = PRODUCTS.find(p => p.name === pkey);
   if (!product?.variants) return;
-  const n = product.variants.length;
-  const cur = (parseInt(sw.dataset.vidx) + dir + n) % n;
-  sw.dataset.vidx = cur;
-  const v = product.variants[cur];
-  const labelEl = sw.querySelector('.var-label');
-  if (labelEl) labelEl.textContent = v.label;
-  const priceEl = sw.querySelector('.var-price');
-  if (priceEl && v.price) priceEl.textContent = v.price;
-  const codeEl = sw.querySelector('.var-code');
-  if (codeEl) codeEl.textContent = v.code;
-  const countEl = sw.querySelector('.var-count');
-  if (countEl) countEl.textContent = `${cur+1} / ${n}`;
+  const v = product.variants[parseInt(sel.value)];
+  const codeEl = card.querySelector('.product-code');
+  if (codeEl && v.code) codeEl.textContent = v.code;
+  updateQtyDisplays();
 }
+
+const SERIES_DISPLAY = {
+  'WHITE SHOT': 'WHITE SHOT 擊速煥白',
+};
 
 const SERIES_ORDER = {
   '臉部保養': ['全部','B.A grandluxe','B.A','WRINKLE SHOT','WHITE SHOT','Red B.A','ALLU 奧麗','WHITISSIMO 優皙','MOISTISSIMO 霧黛絲奧','D','POLISSIMA 新思美'],
@@ -146,7 +157,7 @@ function renderSeriesFilter() {
   bar.classList.remove('hidden');
   bar.classList.remove('nav-collapse');
   bar.innerHTML = series.map(s =>
-    `<button class="series-pill" data-series="${s}">${s}</button>`
+    `<button class="series-pill" data-series="${s}">${SERIES_DISPLAY[s] || s}</button>`
   ).join('');
 
   bar.querySelectorAll('.series-pill').forEach(btn => {
@@ -393,8 +404,8 @@ function getCardVariantKey(card, productName) {
   if (!product || !product.variants) return '';
   const isSizeVar = !!product.variants[0].price;
   if (isSizeVar) {
-    const sw = card.querySelector('.variant-sw');
-    const idx = sw ? parseInt(sw.dataset.vidx || '0') : 0;
+    const sel = card.querySelector('.variant-size-select');
+    const idx = sel ? parseInt(sel.value || '0') : 0;
     return product.variants[idx]?.label || '';
   }
   const active = card.querySelector('.color-swatch-thumb.active');
@@ -436,8 +447,8 @@ function cardQtyChange(btn, productName, delta) {
   if (product.variants) {
     const isSizeVar = !!product.variants[0].price;
     if (isSizeVar) {
-      const sw = card.querySelector('.variant-sw');
-      const idx = sw ? parseInt(sw.dataset.vidx || '0') : 0;
+      const sel = card.querySelector('.variant-size-select');
+      const idx = sel ? parseInt(sel.value || '0') : 0;
       const v = product.variants[idx];
       unitPrice = parsePrice(v.price);
       variantLabel = v.label;
@@ -785,8 +796,8 @@ function handleAddToCart(btn, productName) {
   if (product.variants) {
     const isSizeVar = !!product.variants[0].price;
     if (isSizeVar) {
-      const sw = card.querySelector('.variant-sw');
-      const idx = sw ? parseInt(sw.dataset.vidx || '0') : 0;
+      const sel = card.querySelector('.variant-size-select');
+      const idx = sel ? parseInt(sel.value || '0') : 0;
       const v = product.variants[idx];
       unitPrice = parsePrice(v.price);
       variantLabel = v.label;
