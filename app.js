@@ -550,6 +550,24 @@ function openCheckout() {
   document.getElementById('checkoutOverlay').style.display = 'flex';
   document.getElementById('checkoutForm').style.display = '';
   document.getElementById('checkoutSuccess').style.display = 'none';
+  if (customerToken && _customerData) {
+    document.getElementById('co-buyer-section').style.display = '';
+    document.getElementById('co-buyer-info').textContent = `${_customerData.name}　${_customerData.phone}`;
+    document.getElementById('sameBuyerBtn').style.display = '';
+    document.getElementById('co-name').value = _customerData.name || '';
+    document.getElementById('co-phone').value = _customerData.phone || '';
+    document.getElementById('co-address').value = _customerData.address || '';
+  } else {
+    document.getElementById('co-buyer-section').style.display = 'none';
+    document.getElementById('sameBuyerBtn').style.display = 'none';
+  }
+}
+
+function fillSameBuyer() {
+  if (!_customerData) return;
+  document.getElementById('co-name').value = _customerData.name || '';
+  document.getElementById('co-phone').value = _customerData.phone || '';
+  document.getElementById('co-address').value = _customerData.address || '';
 }
 
 function closeCheckout() {
@@ -659,6 +677,7 @@ async function submitOrder() {
 // ── Portal ────────────────────────────────────────────────────
 
 var customerToken = sessionStorage.getItem('customerToken') || null;
+var _customerData = null;
 
 function openPortal(tab = 'customer') {
   document.getElementById('portalOverlay').classList.add('open');
@@ -756,12 +775,11 @@ async function loadCustomerProfile() {
       return;
     }
     const data = await res.json();
+    _customerData = data;
     document.getElementById('profileName').textContent = data.name;
     document.getElementById('profilePhone').textContent = data.phone;
     document.getElementById('profileMonthly').textContent = fmtNTD(data.monthly_retail);
     document.getElementById('profileTotal').textContent = fmtNTD(data.total_retail);
-    document.getElementById('editName').value = data.name || '';
-    document.getElementById('editAddress').value = data.address || '';
 
     const ordersEl = document.getElementById('profileOrders');
     if (!data.orders.length) {
@@ -795,26 +813,50 @@ async function loadCustomerProfile() {
   }
 }
 
+function showEditProfile() {
+  document.getElementById('editName').value = _customerData?.name || '';
+  document.getElementById('editPhone').value = _customerData?.phone || '';
+  document.getElementById('editAddress').value = _customerData?.address || '';
+  document.getElementById('editNewPassword').value = '';
+  document.getElementById('editNewPassword2').value = '';
+  document.getElementById('editErr').textContent = '';
+  document.getElementById('editProfilePanel').style.display = '';
+}
+
+function cancelEditProfile() {
+  document.getElementById('editProfilePanel').style.display = 'none';
+}
+
 async function saveCustomerProfile() {
   const btn = document.getElementById('saveProfileBtn');
   const err = document.getElementById('editErr');
-  const name = document.getElementById('editName').value.trim();
   const address = document.getElementById('editAddress').value.trim();
-  if (!name) { err.textContent = '姓名不可為空'; return; }
+  const newPwd = document.getElementById('editNewPassword').value;
+  const newPwd2 = document.getElementById('editNewPassword2').value;
+  if (newPwd || newPwd2) {
+    if (newPwd !== newPwd2) { err.textContent = '兩次密碼不一致'; return; }
+    if (newPwd.length < 6) { err.textContent = '密碼至少 6 位'; return; }
+  }
   err.textContent = '';
   btn.disabled = true;
   btn.textContent = '儲存中…';
+  const body = { token: customerToken, address };
+  if (newPwd) body.new_password = newPwd;
   try {
     const res = await fetch(`${SHOP_API}/api/customers/me`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: customerToken, name, address }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error();
     const data = await res.json();
-    document.getElementById('profileName').textContent = data.name;
+    if (_customerData) _customerData.address = data.address;
     btn.textContent = '已儲存 ✓';
-    setTimeout(() => { btn.textContent = '儲存'; btn.disabled = false; }, 2000);
+    setTimeout(() => {
+      btn.textContent = '儲存';
+      btn.disabled = false;
+      document.getElementById('editProfilePanel').style.display = 'none';
+    }, 1500);
   } catch (e) {
     err.textContent = '儲存失敗，請稍後再試';
     btn.textContent = '儲存';
@@ -833,6 +875,7 @@ async function resetCustomerProfile() {
     } catch (e) {}
   }
   customerToken = null;
+  _customerData = null;
   sessionStorage.removeItem('customerToken');
   document.getElementById('customerPhone').value = '';
   document.getElementById('customerPassword').value = '';
