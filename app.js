@@ -678,6 +678,7 @@ async function submitOrder() {
 
 var customerToken = sessionStorage.getItem('customerToken') || null;
 var _customerData = null;
+var _customerOrders = [];
 
 function openPortal(tab = 'customer') {
   document.getElementById('portalOverlay').classList.add('open');
@@ -781,26 +782,20 @@ async function loadCustomerProfile() {
     document.getElementById('profileMonthly').textContent = fmtNTD(data.monthly_retail);
     document.getElementById('profileTotal').textContent = fmtNTD(data.total_retail);
 
+    _customerOrders = data.orders.slice(0, 20);
     const ordersEl = document.getElementById('profileOrders');
-    if (!data.orders.length) {
+    if (!_customerOrders.length) {
       ordersEl.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px 0">尚無訂單記錄</div>';
     } else {
-      ordersEl.innerHTML = data.orders.slice(0, 8).map(o => `
-        <div class="portal-order-item" style="flex-direction:column;align-items:stretch">
+      ordersEl.innerHTML = _customerOrders.slice(0, 8).map((o, idx) => `
+        <div class="portal-order-item" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="showOrderDetail(${idx})">
           <div style="display:flex;justify-content:space-between;align-items:baseline">
             <span style="font-weight:600">${o.order_number}</span>
             <span style="font-weight:600">NTD ${(o.retail_total || 0).toLocaleString()}</span>
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:2px">
             <span style="font-size:11px;color:#aaa">${(o.created_at || '').slice(0,10)}</span>
-            <span style="font-size:11px;color:#aaa">${o.status}</span>
-          </div>
-          <div style="margin-top:5px;padding-top:5px;border-top:1px dashed #f0f0f0">
-            ${o.items.map(i => `
-              <div style="font-size:12px;color:#666;padding:2px 0;display:flex;justify-content:space-between">
-                <span>${i.product_name}${i.variant_label ? ' · ' + i.variant_label : ''}</span>
-                <span>×${i.quantity}</span>
-              </div>`).join('')}
+            <span style="font-size:11px;color:${statusColor(o.status)}">${o.status}</span>
           </div>
         </div>`).join('');
     }
@@ -883,6 +878,43 @@ async function resetCustomerProfile() {
 }
 
 function fmtNTD(n) { return 'NTD ' + Math.round(n || 0).toLocaleString(); }
+
+function statusColor(s) {
+  return { '待確認': '#f59e0b', '已確認': '#16a34a', '已出貨': '#2563eb', '已取消': '#9ca3af' }[s] || '#9ca3af';
+}
+
+function showOrderDetail(idx) {
+  const o = _customerOrders[idx];
+  if (!o) return;
+  document.getElementById('odTitle').textContent = `訂單 ${o.order_number}`;
+  document.getElementById('odDate').textContent = (o.created_at || '').replace('T', ' ').slice(0, 16);
+  const color = statusColor(o.status);
+  document.getElementById('odRows').innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:${color}1a;color:${color};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600">
+        <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span>${o.status}
+      </span>
+    </div>`;
+  document.getElementById('odItems').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;font-size:12px;color:#888;border-bottom:1px solid #f0f0f0;padding-bottom:6px;margin-bottom:6px">
+      <span>商品</span><span style="text-align:right">數量</span><span style="text-align:right">原價</span>
+    </div>
+    ${o.items.map(i => `
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;font-size:13px;color:#444;padding:5px 0;border-bottom:1px solid #fafafa">
+        <div>
+          <div>${i.product_name}</div>
+          ${i.variant_label ? `<div style="font-size:11px;color:#aaa">${i.variant_label}</div>` : ''}
+        </div>
+        <div style="text-align:right;align-self:center">×${i.quantity}</div>
+        <div style="text-align:right;align-self:center">NTD ${(i.unit_price || 0).toLocaleString()}</div>
+      </div>`).join('')}`;
+  document.getElementById('odTotal').textContent = `NTD ${(o.retail_total || 0).toLocaleString()}`;
+  document.getElementById('orderDetailOverlay').style.display = '';
+}
+
+function closeOrderDetail() {
+  document.getElementById('orderDetailOverlay').style.display = 'none';
+}
 
 // ── Agent login / dashboard ───────────────────────────────────
 
