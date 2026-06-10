@@ -20,6 +20,32 @@ function formatPhone(phone) {
   return phone;
 }
 
+function parseRefill(str) {
+  const codeMatch = str.match(/序號\s*(\d+)/);
+  const priceMatch = str.match(/NTD\s*([\d,]+)/);
+  const label = str.replace(/NTD\s*[\d,]+/, '').replace(/（序號\s*\d+）/, '').replace(/\s+/g, ' ').trim();
+  return {
+    label,
+    price: priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : null,
+    priceStr: priceMatch ? priceMatch[1] : null,
+    code: codeMatch ? codeMatch[1] : null,
+  };
+}
+
+function renderRefillSelect(p) {
+  const r = parseRefill(p.refill);
+  const mainLabel = `主裝${p.code ? '（序號 ' + p.code + '）' : ''}`;
+  const refillCodeStr = r.code ? `（序號 ${r.code}）` : '';
+  const refillPriceStr = r.priceStr ? ` NTD ${r.priceStr}` : '';
+  const refillLabel = `${r.label}${refillPriceStr}${refillCodeStr}`;
+  return `<select class="refill-select" onclick="event.stopPropagation();event.preventDefault()" onchange="event.stopPropagation()"
+    data-refill-price="${r.price || ''}" data-refill-code="${r.code || ''}" data-refill-label="${r.label}"
+    style="margin:4px 0;font-size:12px;border:1px solid #ddd;border-radius:6px;padding:4px 6px;width:100%;background:#fff;color:#555;font-family:inherit;cursor:pointer">
+    <option value="main">${mainLabel}</option>
+    <option value="refill">${refillLabel}</option>
+  </select>`;
+}
+
 function seriesId(s) {
   return 'sec-' + s.replace(/[^\w一-鿿]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
@@ -162,7 +188,7 @@ function renderProductCard(p) {
       </div>` : ''}
       ${isColorVar ? renderColorSwatches(p.variants) : ''}
       ${isSizeVar  ? renderSizeSwitcher(p.variants)  : ''}
-      ${p.refill ? `<p class="product-refill">${p.refill}</p>` : ''}
+      ${p.refill ? renderRefillSelect(p) : ''}
       ${p.type ? `<p class="product-type">${p.type}</p>` : ''}
       ${(p.tagline || p.description) ? `<hr class="product-divider">` : ''}
       ${p.tagline ? `<p class="product-tagline">${p.tagline}</p>` : ''}
@@ -424,6 +450,14 @@ function cardQtyChange(btn, productName, delta) {
     }
   } else {
     unitPrice = parsePrice(product.price);
+    const refillSel = card.querySelector('.refill-select');
+    if (refillSel && refillSel.value === 'refill') {
+      const refillPrice = parseInt(refillSel.dataset.refillPrice);
+      if (refillPrice) unitPrice = refillPrice;
+      code = refillSel.dataset.refillCode || code;
+      variantLabel = refillSel.dataset.refillLabel || null;
+      vkey = variantLabel || '';
+    }
   }
 
   if (!unitPrice && delta > 0) return;
