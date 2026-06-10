@@ -198,19 +198,21 @@ function renderProductCard(p) {
         : `<div class="img-placeholder" style="display:flex">POLA</div>`}
     </div>
     <div class="product-info">
-      <div class="product-top-row">
-        <span class="product-series">${p.series}</span>
-        ${p.code ? `<span class="product-code">${p.code}</span>` : ''}
+      <div class="product-header-zone">
+        <div class="product-top-row">
+          <span class="product-series">${p.series}</span>
+          ${p.code ? `<span class="product-code">${p.code}</span>` : ''}
+        </div>
+        <h3 class="product-name">${p.name}</h3>
+        ${!isSizeVar ? `<div class="product-spec-row">
+          ${p.size ? `<span class="product-size">${p.size}</span>` : ''}
+          ${p.price ? `<span class="product-price">${p.price}</span>` : ''}
+        </div>` : ''}
+        ${isColorVar ? renderColorSwatches(p.variants) : ''}
+        ${isSizeVar  ? renderSizeSwitcher(p.variants)  : ''}
+        ${p.refill ? renderRefillSelect(p) : ''}
+        ${p.type ? `<p class="product-type">${p.type}</p>` : ''}
       </div>
-      <h3 class="product-name">${p.name}</h3>
-      ${!isSizeVar ? `<div class="product-spec-row">
-        ${p.size ? `<span class="product-size">${p.size}</span>` : ''}
-        ${p.price ? `<span class="product-price">${p.price}</span>` : ''}
-      </div>` : ''}
-      ${isColorVar ? renderColorSwatches(p.variants) : ''}
-      ${isSizeVar  ? renderSizeSwitcher(p.variants)  : ''}
-      ${p.refill ? renderRefillSelect(p) : ''}
-      ${p.type ? `<p class="product-type">${p.type}</p>` : ''}
       ${(p.tagline || p.description) ? `<hr class="product-divider">` : ''}
       ${p.tagline ? `<p class="product-tagline">${p.tagline}</p>` : ''}
       ${p.description ? `<p class="product-desc">${p.description}</p>` : ''}
@@ -264,7 +266,30 @@ function renderProducts() {
     .join('');
 
   updateQtyDisplays();
+  requestAnimationFrame(equalizeHeaderZones);
 }
+
+function equalizeHeaderZones() {
+  const zones = [...document.querySelectorAll('.product-header-zone')];
+  zones.forEach(z => z.style.minHeight = '');
+  if (!zones.length) return;
+  const rows = new Map();
+  zones.forEach(z => {
+    const top = Math.round(z.getBoundingClientRect().top);
+    if (!rows.has(top)) rows.set(top, []);
+    rows.get(top).push(z);
+  });
+  rows.forEach(group => {
+    const maxH = Math.max(...group.map(z => z.offsetHeight));
+    group.forEach(z => z.style.minHeight = maxH + 'px');
+  });
+}
+
+let _eqResizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_eqResizeTimer);
+  _eqResizeTimer = setTimeout(equalizeHeaderZones, 150);
+});
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
