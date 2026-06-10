@@ -136,6 +136,8 @@ function varSizeChange(sel) {
 
 const SERIES_DISPLAY = {
   'WHITE SHOT': 'WHITE SHOT 擊速煥白',
+  'PENSÉE DE BOUQUET': 'PENSÉE DE BOUQUET 沁香',
+  'SPARKLING BOUQUET': 'SPARKLING BOUQUET 燦爛花園',
 };
 
 const SERIES_ORDER = {
@@ -258,7 +260,7 @@ function renderProducts() {
     .filter(s => grouped[s] && grouped[s].length)
     .map(s => `
       <div class="series-section" id="${seriesId(s)}">
-        <h2 class="series-heading">${s}</h2>
+        <h2 class="series-heading">${SERIES_DISPLAY[s] || s}</h2>
         <div class="series-products">
           ${grouped[s].map(p => renderProductCard(p)).join('')}
         </div>
@@ -689,26 +691,35 @@ async function lookupCustomerProfile() {
     if (!res.ok) throw new Error();
     const data = await res.json();
 
+    if (data.order_count === 0) {
+      err.textContent = '查無此號碼訂單，請輸入正確的電話號碼';
+      return;
+    }
+
     document.getElementById('profileName').textContent = data.name || phone;
+    document.getElementById('profilePhone').textContent = data.phone;
     document.getElementById('profileMonthly').textContent = fmtNTD(data.monthly_retail);
     document.getElementById('profileTotal').textContent = fmtNTD(data.total_retail);
 
     const ordersEl = document.getElementById('profileOrders');
-    if (!data.orders.length) {
-      ordersEl.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px 0">尚無訂單記錄</div>';
-    } else {
-      ordersEl.innerHTML = data.orders.slice(0, 8).map(o => `
-        <div class="portal-order-item">
-          <div>
-            <div style="font-weight:600">${o.order_number}</div>
-            <div style="font-size:11px;color:#aaa">${(o.created_at || '').slice(0,10)} · ${o.items.length} 項商品</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-weight:600">NTD ${(o.retail_total || 0).toLocaleString()}</div>
-            <div style="font-size:11px;color:#aaa">${o.status}</div>
-          </div>
-        </div>`).join('');
-    }
+    ordersEl.innerHTML = data.orders.slice(0, 8).map(o => `
+      <div class="portal-order-item" style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-weight:600">${o.order_number}</span>
+          <span style="font-weight:600">NTD ${(o.retail_total || 0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:2px">
+          <span style="font-size:11px;color:#aaa">${(o.created_at || '').slice(0,10)}</span>
+          <span style="font-size:11px;color:#aaa">${o.status}</span>
+        </div>
+        <div style="margin-top:5px;padding-top:5px;border-top:1px dashed #f0f0f0">
+          ${o.items.map(item => `
+            <div style="font-size:12px;color:#666;padding:2px 0;display:flex;justify-content:space-between">
+              <span>${item.product_name}${item.variant_label ? ' · ' + item.variant_label : ''}</span>
+              <span>×${item.quantity}</span>
+            </div>`).join('')}
+        </div>
+      </div>`).join('');
 
     document.getElementById('portalCustomerLogin').style.display = 'none';
     document.getElementById('portalCustomerProfile').style.display = '';

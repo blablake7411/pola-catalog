@@ -234,8 +234,11 @@
         </div>
         <div id="portalCustomerProfile" style="display:none">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <strong id="profileName" style="font-size:15px"></strong>
-            <span style="font-size:12px;color:#aaa;cursor:pointer" onclick="resetCustomerProfile()">切換帳號</span>
+            <div>
+              <strong id="profileName" style="font-size:15px;display:block"></strong>
+              <span id="profilePhone" style="font-size:12px;color:#888;margin-top:2px;display:block"></span>
+            </div>
+            <span style="font-size:12px;color:#aaa;cursor:pointer" onclick="resetCustomerProfile()">登出</span>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="portal-stat">
