@@ -357,7 +357,8 @@ header {
 .product-usage {
   font-size: 10px;
   color: #aaa;
-  margin-top: 4px;
+  margin-top: auto;
+  padding-top: 8px;
   margin-bottom: 2px;
 }
 .product-divider {

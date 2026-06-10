@@ -48,7 +48,8 @@ function renderRefillSelect(p) {
     onclick="event.stopPropagation();event.preventDefault()"
     onchange="event.stopPropagation();refillSelectChange(this)"
     data-refill-price="${r.price || ''}" data-refill-code="${r.code || ''}" data-refill-label="${r.label}"
-    data-main-price="${p.price || ''}" data-main-code="${p.code || ''}">
+    data-main-price="${p.price || ''}" data-main-code="${p.code || ''}"
+    ${isPowder ? 'data-is-powder="1"' : ''}>
     <option value="main">${mainLabel}</option>
     <option value="refill">${refillLabel}</option>
   </select>${note}`;
@@ -58,13 +59,16 @@ function refillSelectChange(sel) {
   const card = sel.closest('.product-card');
   const priceEl = card.querySelector('.product-price');
   const codeEl = card.querySelector('.product-code');
+  const swatches = card.querySelectorAll('.color-swatch-thumb');
   if (sel.value === 'refill') {
     const price = parseInt(sel.dataset.refillPrice);
     if (price && priceEl) priceEl.textContent = 'NTD ' + price.toLocaleString();
     if (sel.dataset.refillCode && codeEl) codeEl.textContent = sel.dataset.refillCode;
+    if (sel.dataset.isPowder) swatches.forEach(t => t.style.display = 'none');
   } else {
     if (priceEl && sel.dataset.mainPrice) priceEl.textContent = sel.dataset.mainPrice;
     if (codeEl && sel.dataset.mainCode) codeEl.textContent = sel.dataset.mainCode;
+    swatches.forEach(t => t.style.display = '');
   }
 }
 
