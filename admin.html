@@ -853,16 +853,48 @@
     <!-- ─── Customers View ──────────────────────────── -->
     <section id="view-customers" class="hidden">
       <h1 class="page-title">客人管理</h1>
-      <p class="page-sub">登記客人電話與所屬業務，客人下單填電話時系統自動帶入業務。</p>
-      <div style="margin-bottom:16px">
+      <p class="page-sub">登記客人電話與所屬顧問，客人下單填電話時系統自動帶入顧問。</p>
+
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-label">總客人數</div>
+          <div class="stat-value" id="custStatTotal">—</div>
+          <div class="stat-sub">筆資料</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">已註冊會員</div>
+          <div class="stat-value" id="custStatRegistered" style="color:#19884a">—</div>
+          <div class="stat-sub">可自行查看訂單</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">未註冊</div>
+          <div class="stat-value" id="custStatUnregistered" style="color:#888">—</div>
+          <div class="stat-sub">僅有電話紀錄</div>
+        </div>
+      </div>
+
+      <div class="filter-bar" style="margin-bottom:16px">
+        <input type="text" id="customerSearch" placeholder="搜尋姓名 / 電話" oninput="filterCustomers()">
+        <select id="customerAgentFilter" onchange="filterCustomers()">
+          <option value="">全部顧問</option>
+        </select>
+        <select id="customerAccountFilter" onchange="filterCustomers()">
+          <option value="">全部狀態</option>
+          <option value="1">已註冊</option>
+          <option value="0">未註冊</option>
+        </select>
+        <div class="spacer"></div>
         <button class="btn" onclick="openNewCustomerModal()">+ 新增客人</button>
       </div>
+
       <div class="table-wrap">
         <table>
           <thead><tr>
             <th>姓名</th>
             <th>電話</th>
-            <th>所屬業務</th>
+            <th>所屬顧問</th>
+            <th>備註</th>
+            <th>會員狀態</th>
             <th></th>
           </tr></thead>
           <tbody id="customersTbody"></tbody>

@@ -134,6 +134,8 @@ async function init() {
   renderOrders();
   renderAgents();
   renderReport();
+  filteredCustomers = CUSTOMERS;
+  populateCustomerAgentFilter();
   renderCustomers();
   updatePendingBadge();
   loadGifts();
@@ -151,6 +153,7 @@ function switchView(view) {
   if (view === 'products') renderProductList();
   if (view === 'settlement') renderSettlement();
   if (view === 'gifts') loadGifts();
+  if (view === 'customers') { filteredCustomers = CUSTOMERS; populateCustomerAgentFilter(); renderCustomers(); }
 }
 
 function updatePendingBadge() {
@@ -630,21 +633,59 @@ function inferSeries(name) {
 
 // ── Customers ─────────────────────────────────────────────────
 
+let filteredCustomers = [];
+
+function renderCustomerStats() {
+  const total = CUSTOMERS.length;
+  const registered = CUSTOMERS.filter(c => c.has_account).length;
+  const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  el('custStatTotal', total);
+  el('custStatRegistered', registered);
+  el('custStatUnregistered', total - registered);
+}
+
+function filterCustomers() {
+  const q = (document.getElementById('customerSearch')?.value || '').toLowerCase();
+  const agentF = document.getElementById('customerAgentFilter')?.value || '';
+  const accountF = document.getElementById('customerAccountFilter')?.value || '';
+  filteredCustomers = CUSTOMERS.filter(c => {
+    if (q && !c.name.toLowerCase().includes(q) && !(c.phone || '').includes(q)) return false;
+    if (agentF && c.agent_code !== agentF) return false;
+    if (accountF === '1' && !c.has_account) return false;
+    if (accountF === '0' && c.has_account) return false;
+    return true;
+  });
+  renderCustomers();
+}
+
 function renderCustomers() {
+  renderCustomerStats();
   const tbody = document.getElementById('customersTbody');
   if (!tbody) return;
-  if (!CUSTOMERS.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-row">尚無客人資料，點「新增客人」開始建立</td></tr>`;
+  if (!filteredCustomers.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-row">尚無客人資料</td></tr>`;
     return;
   }
-  tbody.innerHTML = CUSTOMERS.map(c => `
+  tbody.innerHTML = filteredCustomers.map(c => `
     <tr>
       <td>${c.name}</td>
-      <td class="mono">${c.phone}</td>
-      <td>${c.agent_name || c.agent_code || '未指定'}</td>
+      <td class="mono">${formatPhone(c.phone)}</td>
+      <td>${c.agent_name ? `${c.agent_name}<span style="color:#aaa;font-size:11px;margin-left:4px">(${c.agent_code})</span>` : '<span style="color:#ccc">未指定</span>'}</td>
+      <td style="color:#888;font-size:12px">${c.notes || ''}</td>
+      <td>${c.has_account
+        ? '<span class="status 已出貨" style="background:#e7f7ec;color:#19884a">已註冊</span>'
+        : '<span style="color:#bbb;font-size:12px">未註冊</span>'
+      }</td>
       <td><button class="btn ghost sm" onclick="deleteCustomer('${c.phone}', '${c.name}')">刪除</button></td>
     </tr>
   `).join('');
+}
+
+function populateCustomerAgentFilter() {
+  const sel = document.getElementById('customerAgentFilter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">全部顧問</option>' +
+    AGENTS.map(a => `<option value="${a.code}">${a.name} (${a.code})</option>`).join('');
 }
 
 function openNewCustomerModal() {
