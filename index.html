@@ -97,6 +97,12 @@
 </head>
 <body>
 
+  <!-- LINE 開啟橫幅：只在非 LINE 瀏覽器時顯示 -->
+  <div id="line-open-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:1000;background:#06c755;color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);">
+    <div style="font-size:13px;font-weight:600;line-height:1.4">在 LINE 中開啟，自動帶入您的資料</div>
+    <a href="https://liff.line.me/2010370100-KultYMpi" style="background:#fff;color:#06c755;border-radius:20px;padding:6px 18px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">用 LINE 開啟</a>
+  </div>
+
   <div id="siteTopBar">
     <!-- Agent Mode Banner -->
     <div id="agentModeBanner" style="display:none">
@@ -415,5 +421,27 @@
 
   <script src="products.js?v=2"></script>
   <script src="app.js?v=2"></script>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    (async function initLiff() {
+      const LIFF_ID = '2010370100-KultYMpi';
+      const banner = document.getElementById('line-open-banner');
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (liff.isInClient()) {
+          if (banner) banner.remove();
+          if (liff.isLoggedIn()) {
+            const profile = await liff.getProfile();
+            sessionStorage.setItem('liff_name', profile.displayName);
+            sessionStorage.setItem('liff_userId', profile.userId);
+          }
+        } else {
+          if (banner) banner.style.display = 'flex';
+        }
+      } catch (e) {
+        if (banner) banner.style.display = 'flex';
+      }
+    })();
+  </script>
 </body>
 </html>

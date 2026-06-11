@@ -560,6 +560,8 @@ function openCheckout() {
   } else {
     document.getElementById('co-buyer-section').style.display = 'none';
     document.getElementById('sameBuyerBtn').style.display = 'none';
+    const liffName = sessionStorage.getItem('liff_name');
+    if (liffName) document.getElementById('co-name').value = liffName;
   }
 }
 
