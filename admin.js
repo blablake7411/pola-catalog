@@ -638,10 +638,12 @@ let filteredCustomers = [];
 function renderCustomerStats() {
   const total = CUSTOMERS.length;
   const registered = CUSTOMERS.filter(c => c.has_account).length;
+  const lined = CUSTOMERS.filter(c => c.line_user_id).length;
   const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   el('custStatTotal', total);
   el('custStatRegistered', registered);
   el('custStatUnregistered', total - registered);
+  el('custStatLine', lined);
 }
 
 function filterCustomers() {
@@ -675,6 +677,10 @@ function renderCustomers() {
       <td>${c.has_account
         ? '<span class="status 已出貨" style="background:#e7f7ec;color:#19884a">已註冊</span>'
         : '<span style="color:#bbb;font-size:12px">未註冊</span>'
+      }</td>
+      <td>${c.line_user_id
+        ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#e8f8ee;color:#06c755;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">LINE</span>'
+        : '<span style="color:#ddd;font-size:12px">—</span>'
       }</td>
       <td><button class="btn ghost sm" onclick="deleteCustomer('${c.phone}', '${c.name}')">刪除</button></td>
     </tr>
