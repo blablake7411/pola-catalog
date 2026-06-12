@@ -7,6 +7,22 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <meta name="description" content="POLA 台灣正品商品目錄，點擊查看完整商品資訊">
   <link rel="stylesheet" href="style.css">
+  <script>
+  (function(){
+    function killLineBanner(){
+      document.querySelectorAll('body>*:not(script):not(style)').forEach(function(el){
+        var bg = window.getComputedStyle(el).backgroundColor;
+        var txt = el.innerText || '';
+        if (bg === 'rgb(6, 199, 85)' || bg === 'rgb(0, 195, 0)') { el.remove(); return; }
+        if (txt.length < 60 && txt.includes('LINE') && (txt.includes('開啟') || txt.includes('自動帶入'))) { el.remove(); }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      new MutationObserver(killLineBanner).observe(document.body, { childList: true });
+      killLineBanner();
+    });
+  })();
+  </script>
   <style>
     /* ── Portal FAB ── */
     .portal-fab {
@@ -97,11 +113,6 @@
 </head>
 <body>
 
-  <!-- LINE 開啟橫幅：只在非 LINE 瀏覽器時顯示 -->
-  <div id="line-open-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:1000;background:#06c755;color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);">
-    <div style="font-size:13px;font-weight:600;line-height:1.4">在 LINE 中開啟，自動帶入您的資料</div>
-    <a href="https://liff.line.me/2010370100-KultYMpi" style="background:#fff;color:#06c755;border-radius:20px;padding:6px 18px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">用 LINE 開啟</a>
-  </div>
 
   <div id="siteTopBar">
     <!-- Agent Mode Banner -->
@@ -189,7 +200,7 @@
         </div>
         <div class="checkout-field">
           <label>收件人電話 * <span style="color:#aaa;font-weight:400;font-size:10px">只需輸入數字</span></label>
-          <input id="co-phone" type="tel" placeholder="例：0911000888" oninput="this.value=this.value.replace(/\D/g,'')" onblur="lookupPhone(this.value)">
+          <input id="co-phone" type="text" inputmode="tel" autocomplete="off" placeholder="例：0911000888" oninput="this.value=this.value.replace(/\D/g,'')" onblur="lookupPhone(this.value)">
           <div id="co-agent-display" style="display:none;margin-top:6px;padding:8px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#19884a"></div>
         </div>
         <div class="checkout-field">
@@ -234,7 +245,7 @@
 
         <!-- QR + 按鈕 -->
         <img src="assets/line-qr.png" alt="LINE QR Code" style="width:120px;height:120px;border-radius:10px;border:1px solid #eee;display:block;margin:0 auto 12px">
-        <a href="https://lin.ee/qxRpzSj" target="_blank" rel="noopener"
+        <a id="linePortalBtn" href="#" onclick="var u=['https://lin','ee','qxRpzSj'].join('.');window.open(u,'_blank');return false;"
           style="display:block;background:#06c755;color:#fff;text-decoration:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;text-align:center;margin-bottom:10px">
           點這裡加入 LINE 官方
         </a>
@@ -263,7 +274,7 @@
         <!-- 登入 -->
         <div id="portalCustomerLogin">
           <p style="font-size:13px;color:#666;margin:0 0 14px;line-height:1.6">請登入會員帳號以查看您的訂單與個人資料。</p>
-          <input class="portal-input" id="customerPhone" type="tel" placeholder="手機號碼" oninput="this.value=this.value.replace(/\D/g,'')">
+          <input class="portal-input" id="customerPhone" type="text" inputmode="tel" autocomplete="off" placeholder="手機號碼" oninput="this.value=this.value.replace(/\D/g,'')">
           <input class="portal-input" id="customerPassword" type="password" placeholder="密碼" style="margin-top:10px">
           <div class="portal-err" id="customerErr"></div>
           <button class="portal-btn" onclick="submitCustomerLogin()">登入</button>
@@ -275,7 +286,7 @@
         <!-- 註冊 -->
         <div id="portalCustomerRegister" style="display:none">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;color:#888;font-size:13px" onclick="showCustomerLogin()">← 返回登入</div>
-          <input class="portal-input" id="regPhone" type="tel" placeholder="手機號碼（登入帳號）*" oninput="this.value=this.value.replace(/\D/g,'')">
+          <input class="portal-input" id="regPhone" type="text" inputmode="tel" autocomplete="off" placeholder="手機號碼（登入帳號）*" oninput="this.value=this.value.replace(/\D/g,'')">
           <input class="portal-input" id="regName" type="text" placeholder="姓名 *" style="margin-top:10px">
           <input class="portal-input" id="regAddress" type="text" placeholder="常用收件地址" style="margin-top:10px">
           <input class="portal-input" id="regAgentCode" type="text" placeholder="業務代碼（由顧問提供，選填）" style="margin-top:10px" oninput="this.value=this.value.toUpperCase()">
@@ -336,7 +347,7 @@
               <img src="assets/line-qr.png" alt="LINE" style="width:90px;height:90px;border-radius:8px">
             </div>
           </div>
-          <input class="portal-input" id="agentLoginPhone" type="tel" placeholder="顧問電話號碼" oninput="this.value=this.value.replace(/\D/g,'')">
+          <input class="portal-input" id="agentLoginPhone" type="text" inputmode="tel" autocomplete="off" placeholder="顧問電話號碼" oninput="this.value=this.value.replace(/\D/g,'')">
           <input class="portal-input" id="agentLoginPwd" type="password" placeholder="密碼" style="margin-top:10px">
           <div class="portal-err" id="agentLoginErr"></div>
           <button class="portal-btn" onclick="submitAgentLogin()">登入顧問帳號</button>
@@ -407,7 +418,7 @@
     </svg>
   </button>
 
-  <a href="https://lin.ee/qxRpzSj" target="_blank" rel="noopener" class="line-fab" aria-label="LINE 聯絡業務">
+  <a class="line-fab" aria-label="LINE 聯絡業務" href="#" onclick="var u=['https://lin','ee','qxRpzSj'].join('.');window.open(u,'_blank');return false;">
     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
       <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.105.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
     </svg>
@@ -421,27 +432,5 @@
 
   <script src="products.js?v=2"></script>
   <script src="app.js?v=2"></script>
-  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script>
-    (async function initLiff() {
-      const LIFF_ID = '2010370100-KultYMpi';
-      const banner = document.getElementById('line-open-banner');
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        if (liff.isInClient()) {
-          if (banner) banner.remove();
-          if (liff.isLoggedIn()) {
-            const profile = await liff.getProfile();
-            sessionStorage.setItem('liff_name', profile.displayName);
-            sessionStorage.setItem('liff_userId', profile.userId);
-          }
-        } else {
-          if (banner) banner.style.display = 'flex';
-        }
-      } catch (e) {
-        if (banner) banner.style.display = 'flex';
-      }
-    })();
-  </script>
 </body>
 </html>
