@@ -9,17 +9,20 @@
   <link rel="stylesheet" href="style.css">
   <script>
   (function(){
-    function killLineBanner(){
-      document.querySelectorAll('body>*:not(script):not(style)').forEach(function(el){
-        var bg = window.getComputedStyle(el).backgroundColor;
+    function killLineBanner(addedNodes){
+      addedNodes.forEach(function(el){
+        if (!el.classList) return;
+        if (el.classList.contains('line-fab')) return;
         var txt = el.innerText || '';
-        if (bg === 'rgb(6, 199, 85)' || bg === 'rgb(0, 195, 0)') { el.remove(); return; }
-        if (txt.length < 60 && txt.includes('LINE') && (txt.includes('開啟') || txt.includes('自動帶入'))) { el.remove(); }
+        if (txt.length < 80 && txt.includes('LINE') && (txt.includes('開啟') || txt.includes('自動帶入'))) {
+          el.remove();
+        }
       });
     }
     document.addEventListener('DOMContentLoaded', function(){
-      new MutationObserver(killLineBanner).observe(document.body, { childList: true });
-      killLineBanner();
+      new MutationObserver(function(ms){
+        ms.forEach(function(m){ killLineBanner(Array.from(m.addedNodes)); });
+      }).observe(document.body, { childList: true });
     });
   })();
   </script>
