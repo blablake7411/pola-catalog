@@ -5,297 +5,488 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>POLA · 管理後台</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    font-family: -apple-system, 'Helvetica Neue', 'Noto Sans TC', sans-serif;
-    background: #f5f4f1;
-    color: #1a1a18;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-  .mono { font-family: 'SF Mono', Menlo, Consolas, monospace; }
+:root {
+  --sw: 220px;
+  --th: 52px;
+  --sidebar: #1c2235;
+  --sidebar-hover: #2a3352;
+  --sidebar-active: #2d3f6b;
+  --sidebar-accent: #5b8cff;
+  --sidebar-text: #8b96c0;
+  --sidebar-text-on: #fff;
+  --sidebar-label: #495070;
+  --bg: #f4f5fb;
+  --card: #fff;
+  --border: #e5e8f2;
+  --t1: #1a1a2e;
+  --t2: #6b7280;
+  --t3: #adb5c8;
+  --acc: #111;
+}
 
-  /* ── Topbar ── */
-  .topbar {
-    background: #111;
-    color: #fff;
-    height: 52px;
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand .logo-img { height: 20px; filter: invert(1); }
-  .brand .sub { font-size: 10px; letter-spacing: 2px; color: #555; text-transform: uppercase; }
-  .topbar-right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #888; }
-  .topbar-right a { color: #888; text-decoration: none; }
-  .topbar-right a:hover { color: #fff; }
-  #currentMonthLabel { font-size: 13px; font-weight: 600; color: #fff; min-width: 80px; text-align: right; }
-  .month-pill {
-    background: transparent; color: #fff; border: 1px solid #333;
-    border-radius: 6px; padding: 5px 10px; font-family: inherit; font-size: 12px;
-    cursor: pointer; outline: none; -webkit-appearance: none; appearance: none; color-scheme: dark;
-  }
+body { font-family: -apple-system,'Helvetica Neue','Noto Sans TC',sans-serif; background:var(--bg); color:var(--t1); font-size:14px; line-height:1.5; }
+.mono { font-family:'SF Mono',Menlo,Consolas,monospace; }
 
-  /* ── Layout ── */
-  .shell { display: flex; min-height: calc(100vh - 52px); }
-  .sidenav {
-    width: 176px;
-    background: #fff;
-    border-right: 1px solid #e8e6e1;
-    padding: 16px 0;
-    flex-shrink: 0;
-    position: sticky;
-    top: 52px;
-    height: calc(100vh - 52px);
-    overflow-y: auto;
-  }
-  .sidenav button {
-    width: 100%; padding: 10px 20px;
-    background: none; border: none; border-left: 2px solid transparent;
-    text-align: left; font-size: 13px; color: #777;
-    cursor: pointer; font-family: inherit;
-    display: flex; align-items: center; justify-content: space-between;
-    transition: background .12s, color .12s;
-  }
-  .sidenav button:hover { background: #f7f6f2; color: #1a1a18; }
-  .sidenav button.active { background: #f7f6f2; color: #1a1a18; font-weight: 600; border-left-color: #1a1a18; }
-  .sidenav button .badge {
-    background: #e53e3e; color: #fff; font-size: 10px; font-weight: 700;
-    padding: 1px 6px; border-radius: 10px; min-width: 18px; text-align: center;
-  }
-  .main { flex: 1; padding: 28px 36px; min-width: 0; overflow-x: auto; }
+/* ── Layout ── */
+.layout { display:flex; min-height:100vh; }
 
-  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-  .page-sub { font-size: 12px; color: #aaa; margin-bottom: 22px; }
+/* ── Sidebar ── */
+.sidenav {
+  width:var(--sw); background:var(--sidebar);
+  position:fixed; top:0; left:0; height:100vh;
+  display:flex; flex-direction:column; z-index:200;
+  overflow-y:auto; overflow-x:hidden;
+  scrollbar-width:none;
+}
+.sidenav::-webkit-scrollbar { display:none; }
+.sidenav-header {
+  padding:18px 20px 16px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid rgba(255,255,255,.06); flex-shrink:0;
+}
+.sidenav-header .logo-img { height:18px; filter:invert(1); }
+.sidenav-header .brand-sub { font-size:10px; letter-spacing:2px; color:var(--sidebar-label); text-transform:uppercase; }
 
-  /* ── Stats cards ── */
-  .stats-row {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 14px; margin-bottom: 22px;
-  }
-  .stat-card {
-    background: #fff; border: 1px solid #e8e6e1;
-    border-radius: 10px; padding: 18px 20px;
-  }
-  .stat-label { font-size: 10px; color: #aaa; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 8px; }
-  .stat-value { font-size: 26px; font-weight: 700; color: #1a1a18; line-height: 1; }
-  .stat-sub { font-size: 11px; color: #ccc; margin-top: 6px; }
-  .stat-card.accent { background: #111; border-color: #111; }
-  .stat-card.accent .stat-label { color: #555; }
-  .stat-card.accent .stat-value { color: #fff; }
-  .stat-card.accent .stat-sub { color: #555; }
+.sidenav-nav { flex:1; padding:8px 0; }
+.nav-group { margin-bottom:2px; }
+.nav-group-label {
+  font-size:9px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--sidebar-label); padding:14px 20px 5px;
+}
+.sidenav button {
+  width:100%; padding:9px 20px; background:none; border:none;
+  border-left:2px solid transparent; text-align:left; font-size:13px;
+  color:var(--sidebar-text); cursor:pointer; font-family:inherit;
+  display:flex; align-items:center; gap:10px;
+  transition:background .12s, color .12s; position:relative; white-space:nowrap;
+}
+.sidenav button:hover { background:var(--sidebar-hover); color:#cfd5f0; }
+.sidenav button.active { background:var(--sidebar-active); color:var(--sidebar-text-on); border-left-color:var(--sidebar-accent); }
+.btn-icon { flex-shrink:0; opacity:.65; display:flex; }
+.sidenav button.active .btn-icon { opacity:1; }
+.sidenav button .badge {
+  background:#e53e3e; color:#fff; font-size:10px; font-weight:700;
+  padding:1px 6px; border-radius:10px; min-width:18px; text-align:center; margin-left:auto;
+}
+.sidenav-footer {
+  padding:12px 20px; border-top:1px solid rgba(255,255,255,.06);
+  font-size:11px; color:var(--sidebar-label); flex-shrink:0;
+}
 
-  /* ── Filters ── */
-  .filter-bar {
-    background: #fff; border: 1px solid #e8e6e1; border-radius: 8px;
-    padding: 10px 14px; display: flex; align-items: center; gap: 10px;
-    margin-bottom: 14px; flex-wrap: wrap;
-  }
-  .filter-bar input, .filter-bar select {
-    border: 1px solid #ddd; border-radius: 6px; padding: 7px 10px;
-    font-size: 13px; font-family: inherit; outline: none; background: #fff; color: #1a1a18;
-  }
-  .filter-bar input { min-width: 200px; }
-  .filter-bar input:focus, .filter-bar select:focus { border-color: #111; }
-  .filter-bar .spacer { flex: 1; }
+/* ── Main wrap ── */
+.main-wrap { flex:1; margin-left:var(--sw); display:flex; flex-direction:column; min-height:100vh; }
 
-  /* ── Buttons ── */
-  .btn {
-    background: #111; color: #fff; border: none; border-radius: 6px;
-    padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
-    font-family: inherit; transition: opacity .15s; white-space: nowrap;
-  }
-  .btn:hover { opacity: .75; }
-  .btn.ghost { background: none; color: #1a1a18; border: 1px solid #d5d2cc; }
-  .btn.ghost:hover { background: #f7f6f2; opacity: 1; }
-  .btn.danger { background: none; color: #c0392b; border: 1px solid #e3b0aa; }
-  .btn.danger:hover { background: #fdf0ee; opacity: 1; }
-  .btn.sm { padding: 5px 10px; font-size: 12px; }
+/* ── Topbar ── */
+.topbar {
+  background:#fff; border-bottom:1px solid var(--border); height:var(--th);
+  padding:0 28px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:100; flex-shrink:0;
+}
+.topbar-left { display:flex; align-items:center; gap:8px; }
+.page-breadcrumb { font-size:14px; font-weight:600; color:var(--t1); }
+.topbar-right { display:flex; align-items:center; gap:12px; font-size:12px; color:var(--t2); }
+.topbar-right a { color:var(--t2); text-decoration:none; }
+.topbar-right a:hover { color:var(--t1); }
+.month-pill {
+  background:#fff; color:var(--t1); border:1px solid var(--border);
+  border-radius:6px; padding:5px 10px; font-family:inherit; font-size:12px;
+  cursor:pointer; outline:none; -webkit-appearance:none; appearance:none;
+}
 
-  /* ── Table ── */
-  .table-wrap { background: #fff; border: 1px solid #e8e6e1; border-radius: 10px; overflow: hidden; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th {
-    text-align: left; padding: 11px 16px;
-    font-size: 10px; color: #aaa; font-weight: 600; letter-spacing: .07em;
-    text-transform: uppercase; border-bottom: 1px solid #eeece8; background: #faf9f6;
-  }
-  td { padding: 13px 16px; border-bottom: 1px solid #f3f1ed; vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr.row-clickable { cursor: pointer; }
-  tr.row-clickable:hover td { background: #faf9f6; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  th.num { text-align: right; }
-  .empty-row { text-align: center; padding: 48px; color: #ccc; font-size: 13px; }
+/* ── Main ── */
+.main { flex:1; padding:28px 32px; min-width:0; overflow-x:auto; }
 
-  /* ── Status pills ── */
-  .status {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
-  }
-  .status::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
-  .status.待確認 { background: #fef8e7; color: #a07000; }
-  .status.已確認 { background: #e8f0fe; color: #1a56c4; }
-  .status.已出貨 { background: #e8f5ed; color: #1a6e3e; }
-  .status.已取消 { background: #f4f4f2; color: #999; }
+.page-title { font-size:20px; font-weight:700; margin-bottom:4px; }
+.page-sub { font-size:12px; color:var(--t3); margin-bottom:22px; }
 
-  /* ── Tier pills ── */
-  .tier { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.05em; }
-  .tier.T1 { background:#f0eee9; color:#888; }
-  .tier.T2 { background:#fef6e0; color:#9a6a00; }
-  .tier.T3 { background:#111; color:#fff; }
+/* ── Stats ── */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+.stat-card {
+  background:var(--card); border:1px solid var(--border); border-radius:10px;
+  padding:18px 20px; box-shadow:0 1px 4px rgba(0,0,0,.04);
+}
+.stat-label { font-size:10px; color:var(--t3); letter-spacing:.07em; text-transform:uppercase; margin-bottom:8px; }
+.stat-value { font-size:26px; font-weight:700; color:var(--t1); line-height:1; }
+.stat-sub { font-size:11px; color:var(--t3); margin-top:6px; }
+.stat-card.accent { background:var(--sidebar); border-color:var(--sidebar); }
+.stat-card.accent .stat-label { color:var(--sidebar-label); }
+.stat-card.accent .stat-value { color:#fff; }
+.stat-card.accent .stat-sub { color:var(--sidebar-label); }
 
-  /* ── Drawer ── */
-  .drawer-overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:500;
-    opacity:0; pointer-events:none; transition:opacity .25s; backdrop-filter:blur(3px);
-  }
-  .drawer-overlay.open { opacity:1; pointer-events:auto; }
-  .drawer {
-    position:fixed; top:0; right:0; bottom:0; width:520px; max-width:100vw;
-    background:#fff; z-index:501; transform:translateX(100%);
-    transition:transform .3s cubic-bezier(.32,0,.32,1);
-    display:flex; flex-direction:column; box-shadow:-12px 0 40px rgba(0,0,0,.07);
-  }
-  .drawer.open { transform:translateX(0); }
-  .drawer-header {
-    padding:18px 24px; border-bottom:1px solid #eeece8;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .drawer-header h2 { font-size:16px; font-weight:700; }
-  .drawer-close { background:none; border:none; font-size:22px; color:#ccc; cursor:pointer; line-height:1; transition:color .15s; }
-  .drawer-close:hover { color:#555; }
-  .drawer-body { flex:1; overflow-y:auto; padding:20px 24px; }
-  .drawer-footer { padding:14px 24px; border-top:1px solid #eeece8; display:flex; gap:10px; background:#faf9f6; }
+/* ── Filter bar ── */
+.filter-bar {
+  background:var(--card); border:1px solid var(--border); border-radius:8px;
+  padding:10px 14px; display:flex; align-items:center; gap:10px;
+  margin-bottom:14px; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,.03);
+}
+.filter-bar input,.filter-bar select {
+  border:1px solid #dde2ed; border-radius:6px; padding:7px 10px;
+  font-size:13px; font-family:inherit; outline:none; background:#fff; color:var(--t1);
+}
+.filter-bar input { min-width:200px; }
+.filter-bar input:focus,.filter-bar select:focus { border-color:var(--sidebar-accent); box-shadow:0 0 0 2px rgba(91,140,255,.1); }
+.filter-bar .spacer { flex:1; }
 
-  .info-grid { display:grid; grid-template-columns:90px 1fr; gap:9px 14px; font-size:13px; margin-bottom:18px; }
-  .info-grid dt { color:#bbb; font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding-top:1px; }
-  .info-grid dd { color:#1a1a18; }
-  .section-title { font-size:10px; color:#ccc; letter-spacing:.07em; text-transform:uppercase; margin:18px 0 10px; padding-bottom:6px; border-bottom:1px solid #eeece8; }
+/* ── Buttons ── */
+.btn {
+  background:var(--acc); color:#fff; border:none; border-radius:6px;
+  padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer;
+  font-family:inherit; transition:opacity .15s; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.btn:hover { opacity:.8; }
+.btn.ghost { background:none; color:var(--t1); border:1px solid var(--border); }
+.btn.ghost:hover { background:var(--bg); opacity:1; }
+.btn.danger { background:none; color:#c0392b; border:1px solid #e3b0aa; }
+.btn.danger:hover { background:#fdf0ee; opacity:1; }
+.btn.sm { padding:5px 10px; font-size:12px; }
+.btn.primary-blue { background:#1d4ed8; }
 
-  .breakdown-card { background:#faf9f6; border-radius:8px; padding:14px 16px; margin-top:10px; }
-  .breakdown-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; }
-  .breakdown-row.total { font-weight:700; border-top:1px solid #e8e5e0; margin-top:6px; padding-top:10px; }
-  .breakdown-row .label { color:#777; }
-  .breakdown-row .profit { color:#1a6e3e; font-weight:700; }
+/* ── Table ── */
+.table-wrap {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.04);
+}
+.table-wrap.tab-attached { border-top-left-radius:0; border-top-right-radius:0; border-top:none; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th {
+  text-align:left; padding:11px 16px;
+  font-size:10px; color:var(--t3); font-weight:600; letter-spacing:.07em;
+  text-transform:uppercase; border-bottom:1px solid var(--border); background:#fafbff;
+}
+td { padding:13px 16px; border-bottom:1px solid #f3f5fc; vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+tr.row-clickable { cursor:pointer; }
+tr.row-clickable:hover td { background:#f8f9ff; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; }
+th.num { text-align:right; }
+.empty-row { text-align:center; padding:48px; color:var(--t3); font-size:13px; }
+th.col-check,td.col-check { width:40px; padding-right:0; }
+.row-check { width:15px; height:15px; cursor:pointer; accent-color:var(--sidebar-accent); }
 
-  /* ── Tier progress bar ── */
-  .tier-bar { background:#ece9e3; height:6px; border-radius:3px; overflow:hidden; margin:6px 0 4px; }
-  .tier-bar-fill { height:100%; background:#111; border-radius:3px; transition:width .3s; }
-  .tier-bar-fill.t2 { background:#c9890a; }
-  .tier-bar-fill.t3 { background:#1a6e3e; }
-  .tier-progress-text { font-size:11px; color:#bbb; }
+/* ── Bulk bar ── */
+.bulk-bar {
+  background:var(--sidebar); color:#fff; border-radius:8px;
+  padding:10px 16px; display:none; align-items:center; gap:12px;
+  margin-bottom:10px; font-size:13px;
+}
+.bulk-bar.visible { display:flex; }
+.bulk-bar select {
+  border:1px solid rgba(255,255,255,.2); border-radius:6px; padding:5px 10px;
+  background:rgba(255,255,255,.1); color:#fff; font-family:inherit; font-size:12px; outline:none;
+}
 
-  /* ── Monthly report ── */
-  .report-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
-  .panel { background:#fff; border:1px solid #e8e6e1; border-radius:10px; padding:18px 20px; }
-  .panel h3 { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#bbb; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #eeece8; }
-  .bar-row { display:flex; align-items:center; gap:10px; padding:6px 0; font-size:13px; }
-  .bar-row .nm { width:80px; flex-shrink:0; color:#666; }
-  .bar-row .bar { flex:1; background:#eeece8; height:14px; border-radius:3px; overflow:hidden; }
-  .bar-row .bar-fill { height:100%; background:#111; border-radius:3px; transition:width .5s; }
-  .bar-row .amt { width:100px; text-align:right; font-variant-numeric:tabular-nums; font-size:12px; color:#666; }
+/* ── Status pills ── */
+.status {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px;
+}
+.status::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.status.待確認 { background:#fef8e7; color:#a07000; }
+.status.已確認 { background:#e8f0fe; color:#1a56c4; }
+.status.已付款 { background:#fdf0e8; color:#c05c00; }
+.status.已出貨 { background:#e8f5ed; color:#1a6e3e; }
+.status.已取消 { background:#f4f4f2; color:#999; }
 
-  /* ── Modal ── */
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:600; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
-  .modal-overlay.open { display:flex; }
-  .modal { background:#fff; border-radius:14px; padding:24px; width:400px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,.12); }
-  .modal h2 { font-size:16px; font-weight:700; margin-bottom:18px; }
-  .field { margin-bottom:13px; }
-  .field label { display:block; font-size:11px; color:#aaa; margin-bottom:5px; letter-spacing:.04em; text-transform:uppercase; }
-  .field input, .field select { width:100%; border:1px solid #ddd; border-radius:8px; padding:9px 12px; font-size:13px; font-family:inherit; outline:none; background:#fff; }
-  .field input:focus, .field select:focus { border-color:#111; }
+/* ── Quick date ── */
+.quick-date-bar { display:flex; gap:6px; margin-bottom:16px; }
+.quick-date-btn {
+  padding:6px 14px; border-radius:20px; border:1px solid var(--border);
+  font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;
+  background:var(--card); color:var(--t2); transition:all .15s;
+}
+.quick-date-btn.active { background:var(--acc); color:#fff; border-color:var(--acc); }
+.quick-date-btn:hover:not(.active) { background:var(--bg); }
 
-  /* ── Hidden ── */
-  .hidden { display:none !important; }
+/* ── Status tabs ── */
+.status-tabs-bar {
+  display:flex; gap:0; border-bottom:2px solid var(--border);
+  overflow-x:auto; scrollbar-width:none;
+  background:var(--card); border:1px solid var(--border);
+  border-bottom:none; border-radius:10px 10px 0 0; padding:0 4px;
+}
+.status-tabs-bar::-webkit-scrollbar { display:none; }
+.status-tab-btn {
+  padding:10px 14px; border:none; background:none; cursor:pointer;
+  font-size:12px; font-weight:600; font-family:inherit; color:var(--t3);
+  white-space:nowrap; border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:all .15s; display:flex; align-items:center; gap:5px;
+}
+.status-tab-btn.active { color:var(--acc); border-bottom-color:var(--acc); }
+.status-tab-btn:hover:not(.active) { color:var(--t2); }
+.stab-count {
+  font-size:10px; background:#f0ede8; color:#888; padding:1px 6px;
+  border-radius:10px; font-weight:700; min-width:16px; text-align:center;
+}
+.status-tab-btn.active .stab-count { background:var(--acc); color:#fff; }
+.status-tab-btn[data-status="待確認"] .stab-count { background:#fef3cd; color:#a07000; }
+.status-tab-btn[data-status="待確認"].active .stab-count { background:#a07000; color:#fff; }
 
-  /* ── Product grid ── */
-  .prod-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(168px, 1fr)); gap:14px; margin-top:4px; }
-  .prod-card { background:#fff; border:1px solid #e8e6e1; border-radius:10px; overflow:hidden; cursor:pointer; transition:box-shadow .2s, transform .15s; }
-  .prod-card:hover { box-shadow:0 6px 20px rgba(0,0,0,.07); transform:translateY(-2px); }
-  .prod-card-img { width:100%; padding-top:100%; position:relative; background:#f7f5f1; }
-  .prod-card-img img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:12px; }
-  .prod-card-img .no-img { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#ccc; font-size:11px; }
-  .prod-card-info { padding:10px 12px 14px; }
-  .prod-series-label { font-size:10px; color:#bbb; letter-spacing:.06em; text-transform:uppercase; margin-bottom:3px; }
-  .prod-card-name { font-size:13px; font-weight:600; line-height:1.4; margin-bottom:3px; }
-  .prod-card-price { font-size:12px; color:#777; }
-  .prod-card-code { font-size:10px; color:#6aa3d5; font-weight:600; margin-top:2px; }
+/* ── Tier ── */
+.tier { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.05em; }
+.tier.T1 { background:#f0eee9; color:#888; }
+.tier.T2 { background:#fef6e0; color:#9a6a00; }
+.tier.T3 { background:#111; color:#fff; }
 
-  #productModal .modal { width:660px; max-width:95vw; max-height:90vh; overflow-y:auto; }
-  .prod-img-preview { width:90px; height:90px; border:1px solid #e8e6e1; border-radius:8px; overflow:hidden; flex-shrink:0; background:#f7f5f1; display:flex; align-items:center; justify-content:center; }
-  .prod-img-preview img { width:100%; height:100%; object-fit:contain; padding:6px; }
-  .prod-two-col { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+/* ── Drawer ── */
+.drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:500; opacity:0; pointer-events:none; transition:opacity .25s; backdrop-filter:blur(3px); }
+.drawer-overlay.open { opacity:1; pointer-events:auto; }
+.drawer {
+  position:fixed; top:0; right:0; bottom:0; width:520px; max-width:100vw;
+  background:#fff; z-index:501; transform:translateX(100%);
+  transition:transform .3s cubic-bezier(.32,0,.32,1);
+  display:flex; flex-direction:column; box-shadow:-12px 0 40px rgba(0,0,0,.07);
+}
+.drawer.open { transform:translateX(0); }
+.drawer-header { padding:18px 24px; border-bottom:1px solid #eeece8; display:flex; align-items:center; justify-content:space-between; }
+.drawer-header h2 { font-size:16px; font-weight:700; }
+.drawer-close { background:none; border:none; font-size:22px; color:#ccc; cursor:pointer; line-height:1; transition:color .15s; }
+.drawer-close:hover { color:#555; }
+.drawer-body { flex:1; overflow-y:auto; padding:20px 24px; }
+.drawer-footer { padding:14px 24px; border-top:1px solid #eeece8; display:flex; gap:10px; flex-wrap:wrap; background:#faf9f6; }
+.info-grid { display:grid; grid-template-columns:90px 1fr; gap:9px 14px; font-size:13px; margin-bottom:18px; }
+.info-grid dt { color:#bbb; font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding-top:1px; }
+.info-grid dd { color:var(--t1); }
+.section-title { font-size:10px; color:#ccc; letter-spacing:.07em; text-transform:uppercase; margin:18px 0 10px; padding-bottom:6px; border-bottom:1px solid #eeece8; }
+.breakdown-card { background:#faf9f6; border-radius:8px; padding:14px 16px; margin-top:10px; }
+.breakdown-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; }
+.breakdown-row.total { font-weight:700; border-top:1px solid #e8e5e0; margin-top:6px; padding-top:10px; }
+.breakdown-row .label { color:#777; }
+.breakdown-row .profit { color:#1a6e3e; font-weight:700; }
 
-  /* ── Responsive ── */
-  @media (max-width: 800px) {
-    .stats-row { grid-template-columns:repeat(2, 1fr); gap:10px; }
-    .report-row { grid-template-columns:1fr; }
-    .shell { flex-direction:column; }
-    .sidenav { width:100%; height:auto; border-right:none; border-bottom:1px solid #e8e6e1; display:flex; flex-direction:row; padding:0; overflow-x:auto; position:static; }
-    .sidenav button { padding:10px 14px; border-left:none; border-bottom:2px solid transparent; white-space:nowrap; font-size:12px; flex-shrink:0; }
-    .sidenav button.active { border-left:none; border-bottom-color:#111; background:#f7f6f2; }
-    .main { padding:16px 14px; }
-    .topbar { flex-wrap:wrap; height:auto; padding:10px 16px; gap:8px; }
-    .filter-bar { flex-wrap:wrap; }
-    .filter-bar input { min-width:0; width:100%; }
-    .table-wrap { overflow-x:auto; }
-    table { min-width:560px; }
-    .drawer { width:100vw; }
-  }
-  @media (max-width: 480px) {
-    .stats-row { grid-template-columns:1fr 1fr; }
-    .stat-card { padding:12px 14px; }
-    .stat-value { font-size:20px; }
-  }
-  @media (max-width: 600px) { .prod-two-col { grid-template-columns:1fr; } }
+/* ── Tier progress ── */
+.tier-bar { background:#ece9e3; height:6px; border-radius:3px; overflow:hidden; margin:6px 0 4px; }
+.tier-bar-fill { height:100%; background:#111; border-radius:3px; transition:width .3s; }
+.tier-bar-fill.t2 { background:#c9890a; }
+.tier-bar-fill.t3 { background:#1a6e3e; }
+.tier-progress-text { font-size:11px; color:#bbb; }
+
+/* ── Report ── */
+.report-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+.panel { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.panel h3 { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#bbb; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #eeece8; }
+.bar-row { display:flex; align-items:center; gap:10px; padding:6px 0; font-size:13px; }
+.bar-row .nm { width:80px; flex-shrink:0; color:#666; }
+.bar-row .bar { flex:1; background:#eeece8; height:14px; border-radius:3px; overflow:hidden; }
+.bar-row .bar-fill { height:100%; background:#111; border-radius:3px; transition:width .5s; }
+.bar-row .amt { width:100px; text-align:right; font-variant-numeric:tabular-nums; font-size:12px; color:#666; }
+
+/* ── Modal ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:600; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+.modal-overlay.open { display:flex; }
+.modal { background:#fff; border-radius:14px; padding:24px; width:400px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,.12); }
+.modal h2 { font-size:16px; font-weight:700; margin-bottom:18px; }
+.field { margin-bottom:13px; }
+.field label { display:block; font-size:11px; color:#aaa; margin-bottom:5px; letter-spacing:.04em; text-transform:uppercase; }
+.field input,.field select { width:100%; border:1px solid #ddd; border-radius:8px; padding:9px 12px; font-size:13px; font-family:inherit; outline:none; background:#fff; }
+.field input:focus,.field select:focus { border-color:var(--sidebar-accent); box-shadow:0 0 0 2px rgba(91,140,255,.1); }
+
+/* ── Hidden ── */
+.hidden { display:none !important; }
+
+/* ── Products ── */
+.prod-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(168px,1fr)); gap:14px; margin-top:4px; }
+.prod-card { background:#fff; border:1px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer; transition:box-shadow .2s, transform .15s; }
+.prod-card:hover { box-shadow:0 6px 20px rgba(0,0,0,.07); transform:translateY(-2px); }
+.prod-card-img { width:100%; padding-top:100%; position:relative; background:#f7f5f1; }
+.prod-card-img img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:12px; }
+.prod-card-img .no-img { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#ccc; font-size:11px; }
+.prod-card-info { padding:10px 12px 14px; }
+.prod-series-label { font-size:10px; color:#bbb; letter-spacing:.06em; text-transform:uppercase; margin-bottom:3px; }
+.prod-card-name { font-size:13px; font-weight:600; line-height:1.4; margin-bottom:3px; }
+.prod-card-price { font-size:12px; color:#777; }
+.prod-card-code { font-size:10px; color:#6aa3d5; font-weight:600; margin-top:2px; }
+#productModal .modal { width:660px; max-width:95vw; max-height:90vh; overflow-y:auto; }
+.prod-img-preview { width:90px; height:90px; border:1px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0; background:#f7f5f1; display:flex; align-items:center; justify-content:center; }
+.prod-img-preview img { width:100%; height:100%; object-fit:contain; padding:6px; }
+.prod-two-col { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+
+/* ── Dashboard ── */
+.dash-alert {
+  background:#fffbeb; border:1px solid #fde68a; border-radius:8px;
+  padding:12px 16px; display:flex; align-items:center; justify-content:space-between;
+  font-size:13px; color:#92400e; margin-bottom:18px; cursor:pointer; transition:background .15s;
+}
+.dash-alert:hover { background:#fef9c3; }
+.dash-section { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--t3); margin:20px 0 10px; }
+.dash-quick { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:22px; }
+
+/* ── Responsive ── */
+@media (max-width:900px) {
+  .stats-row { grid-template-columns:repeat(2,1fr); gap:10px; }
+  .report-row { grid-template-columns:1fr; }
+}
+@media (max-width:768px) {
+  .sidenav { transform:translateX(-220px); transition:transform .3s; }
+  .main-wrap { margin-left:0; }
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .main { padding:16px 14px; }
+  .filter-bar input { min-width:0; width:100%; }
+  .table-wrap { overflow-x:auto; }
+  table { min-width:560px; }
+  .drawer { width:100vw; }
+}
+@media (max-width:480px) {
+  .stat-card { padding:12px 14px; }
+  .stat-value { font-size:20px; }
+}
+@media (max-width:600px) { .prod-two-col { grid-template-columns:1fr; } }
 </style>
 </head>
-<body >
+<body>
+<div class="layout">
 
-<div class="topbar">
-  <div class="brand">
+<!-- ─── Sidebar ─────────────────────────────────── -->
+<nav class="sidenav">
+  <div class="sidenav-header">
     <img src="assets/logo.png" alt="POLA" class="logo-img">
-    <span class="sub">管理後台</span>
+    <span class="brand-sub">Admin</span>
   </div>
-  <div class="topbar-right">
-    <span id="currentMonthLabel"></span>
-    <select id="monthInput" class="month-pill" onchange="changeMonth(this.value)"></select>
-    <span>·</span>
-    <a href="index.html">← 客人目錄</a>
-  </div>
-</div>
-<div id="dateRangeBar" style="background:#1a1a1a;border-bottom:1px solid #222;padding:7px 24px;display:flex;align-items:center;gap:10px;font-size:12px;color:#666">
-  <span>自訂日期：</span>
-  <input type="date" id="dateStart" style="background:#252525;color:#ccc;border:1px solid #333;border-radius:6px;padding:5px 9px;font-size:12px;font-family:inherit;outline:none;color-scheme:dark">
-  <span style="color:#444">～</span>
-  <input type="date" id="dateEnd" style="background:#252525;color:#ccc;border:1px solid #333;border-radius:6px;padding:5px 9px;font-size:12px;font-family:inherit;outline:none;color-scheme:dark">
-  <button onclick="applyDateRange()" style="background:#e5a800;color:#000;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">套用</button>
-  <button onclick="clearDateRange()" style="background:none;color:#666;border:1px solid #333;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">清除</button>
-</div>
 
-<div class="shell">
-  <nav class="sidenav">
-    <button class="active" data-view="orders">訂單管理 <span class="badge" id="pendingBadge"></span></button>
-    <button data-view="settlement">月結交點</button>
-    <button data-view="agents">顧問管理</button>
-    <button data-view="gifts">贈品申請 <span class="badge" id="giftBadge"></span></button>
-    <button data-view="customers">客人管理</button>
-    <button data-view="report">月結報表</button>
-    <button data-view="products">商品管理</button>
-  </nav>
+  <div class="sidenav-nav">
+    <div class="nav-group">
+      <button data-view="dashboard">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+        首頁
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">訂單</div>
+      <button data-view="orders">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg></span>
+        訂單管理
+        <span class="badge" id="pendingBadge" style="display:none"></span>
+      </button>
+      <button data-view="settlement">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
+        月結交點
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">業務</div>
+      <button data-view="agents">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>
+        顧問管理
+      </button>
+      <button data-view="gifts">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg></span>
+        贈品申請
+        <span class="badge" id="giftBadge" style="display:none"></span>
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">客人</div>
+      <button data-view="customers">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        客人管理
+      </button>
+      <button data-view="report">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg></span>
+        月結報表
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">設定</div>
+      <button data-view="products">
+        <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></span>
+        商品管理
+      </button>
+    </div>
+  </div>
+
+  <div class="sidenav-footer" id="currentMonthLabel"></div>
+</nav>
+
+<!-- ─── Main wrap ──────────────────────────────── -->
+<div class="main-wrap">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="page-breadcrumb" id="pageBreadcrumb">首頁</span>
+    </div>
+    <div class="topbar-right">
+      <select id="monthInput" class="month-pill" onchange="changeMonth(this.value)"></select>
+      <span>·</span>
+      <a href="index.html">← 客人目錄</a>
+    </div>
+  </div>
 
   <main class="main">
-    <!-- ─── Orders View ───────────────────────────────── -->
-    <section id="view-orders">
+
+    <!-- ─── Dashboard ─────────────────────────── -->
+    <section id="view-dashboard">
+      <h1 class="page-title">首頁</h1>
+      <p class="page-sub" id="dashSub">本月概覽，點任一區塊可進入詳細頁面。</p>
+
+      <div id="dashPendingAlert" class="dash-alert hidden" onclick="switchView('orders')">
+        <span id="dashPendingText"></span>
+        <span style="font-weight:700">前往處理 →</span>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="cursor:pointer" onclick="switchView('orders')">
+          <div class="stat-label">本月訂單</div>
+          <div class="stat-value" id="dKpiOrders">—</div>
+          <div class="stat-sub" id="dKpiOrderSub">—</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="switchView('orders')">
+          <div class="stat-label">原價總額 (業績)</div>
+          <div class="stat-value" id="dKpiRetail">—</div>
+          <div class="stat-sub">客人視角的總價</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="switchView('settlement')">
+          <div class="stat-label">顧問實付 (你實收)</div>
+          <div class="stat-value" id="dKpiAgentCost">—</div>
+          <div class="stat-sub">原價 × 進貨折扣</div>
+        </div>
+        <div class="stat-card accent" style="cursor:pointer" onclick="switchView('report')">
+          <div class="stat-label">你的毛利</div>
+          <div class="stat-value" id="dKpiProfit">—</div>
+          <div class="stat-sub">實收 − 進貨成本</div>
+        </div>
+      </div>
+
+      <div class="dash-quick">
+        <button class="btn" onclick="openNewOrderModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          新增訂單
+        </button>
+        <button class="btn ghost" onclick="switchView('orders')">查看所有訂單</button>
+        <button class="btn ghost" onclick="exportOrdersCSV()">匯出 CSV</button>
+        <button class="btn ghost" onclick="switchView('settlement')">月結交點</button>
+      </div>
+
+      <div class="report-row">
+        <div class="panel">
+          <h3>業務本月業績</h3>
+          <div id="dashAgentChart"><div style="color:var(--t3);font-size:13px;padding:10px 0">載入中…</div></div>
+        </div>
+        <div class="panel">
+          <h3>訂單狀態分布</h3>
+          <div id="dashStatusChart"><div style="color:var(--t3);font-size:13px;padding:10px 0">載入中…</div></div>
+        </div>
+      </div>
+
+      <div class="dash-section">最近 10 筆訂單</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>訂單號</th><th>日期</th><th>顧問</th><th>客人</th>
+            <th class="num">原價</th><th>狀態</th>
+          </tr></thead>
+          <tbody id="dashRecentOrders"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── Orders View ────────────────────────── -->
+    <section id="view-orders" class="hidden">
       <h1 class="page-title">訂單管理</h1>
-      <p class="page-sub">本月已過濾。點任一筆訂單可查看明細並更新狀態。</p>
+      <p class="page-sub">點任一筆訂單可查看明細並更新狀態。</p>
 
       <div class="stats-row">
         <div class="stat-card">
@@ -320,34 +511,52 @@
         </div>
       </div>
 
-      <div class="filter-bar">
-        <input type="text" id="searchInput" placeholder="搜尋 訂單號 / 客人 / 電話">
-        <select id="statusFilter">
-          <option value="">全部狀態</option>
-          <option>待確認</option>
-          <option>已確認</option>
-          <option>已出貨</option>
-          <option>已取消</option>
-        </select>
-        <select id="agentFilter">
-          <option value="">全部顧問</option>
-        </select>
-        <div class="spacer"></div>
-        <button class="btn ghost" onclick="exportOrdersPDF()">匯出 PDF</button>
+      <div class="quick-date-bar">
+        <button class="quick-date-btn active" data-date="month" onclick="setQuickDate('month')">本月</button>
+        <button class="quick-date-btn" data-date="today" onclick="setQuickDate('today')">今天</button>
+        <button class="quick-date-btn" data-date="week" onclick="setQuickDate('week')">近 7 天</button>
+        <button class="quick-date-btn" data-date="all" onclick="setQuickDate('all')">全部</button>
       </div>
 
-      <div class="table-wrap">
+      <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="搜尋 訂單號 / 客人 / 電話">
+        <select id="agentFilter"><option value="">全部顧問</option></select>
+        <div class="spacer"></div>
+        <button class="btn ghost sm" onclick="exportOrdersCSV()">匯出 CSV</button>
+        <button class="btn ghost sm" onclick="exportOrdersPDF()">匯出 PDF</button>
+        <button class="btn sm" onclick="openNewOrderModal()">+ 新增訂單</button>
+      </div>
+
+      <div class="bulk-bar" id="bulkBar">
+        <span id="bulkCount">已選 0 筆</span>
+        <select id="bulkStatusSel">
+          <option value="">批量更新狀態…</option>
+          <option value="已確認">已確認</option>
+          <option value="已付款">已付款</option>
+          <option value="已出貨">已出貨</option>
+          <option value="已取消">已取消</option>
+        </select>
+        <button class="btn sm" style="background:#5b8cff" onclick="applyBulkStatus()">套用</button>
+        <div style="flex:1"></div>
+        <button class="btn ghost sm" onclick="clearBulkSelection()" style="border-color:rgba(255,255,255,.3);color:#fff">取消選取</button>
+      </div>
+
+      <div class="status-tabs-bar">
+        <button class="status-tab-btn active" data-status="" onclick="setStatusTab('')">全部</button>
+        <button class="status-tab-btn" data-status="待確認" onclick="setStatusTab('待確認')">待確認 <span class="stab-count" id="stab-count-待確認"></span></button>
+        <button class="status-tab-btn" data-status="已確認" onclick="setStatusTab('已確認')">已確認 <span class="stab-count" id="stab-count-已確認"></span></button>
+        <button class="status-tab-btn" data-status="已付款" onclick="setStatusTab('已付款')">已付款 <span class="stab-count" id="stab-count-已付款"></span></button>
+        <button class="status-tab-btn" data-status="已出貨" onclick="setStatusTab('已出貨')">已出貨 <span class="stab-count" id="stab-count-已出貨"></span></button>
+        <button class="status-tab-btn" data-status="已取消" onclick="setStatusTab('已取消')">已取消 <span class="stab-count" id="stab-count-已取消"></span></button>
+      </div>
+
+      <div class="table-wrap tab-attached">
         <table>
           <thead>
             <tr>
-              <th>訂單號</th>
-              <th>日期</th>
-              <th>顧問</th>
-              <th>客人</th>
-              <th class="num">原價</th>
-              <th class="num">實收</th>
-              <th class="num">毛利</th>
-              <th>狀態</th>
+              <th class="col-check"><input type="checkbox" class="row-check" id="selectAllOrders" onchange="toggleSelectAll(this.checked)"></th>
+              <th>訂單號</th><th>日期</th><th>顧問</th><th>客人</th>
+              <th class="num">原價</th><th class="num">實收</th><th class="num">毛利</th><th>狀態</th>
             </tr>
           </thead>
           <tbody id="ordersTbody"></tbody>
@@ -355,7 +564,7 @@
       </div>
     </section>
 
-    <!-- ─── Agents View ─────────────────────────────── -->
+    <!-- ─── Agents View ────────────────────────── -->
     <section id="view-agents" class="hidden">
       <h1 class="page-title">顧問管理</h1>
       <p class="page-sub">業績以原價計算；折扣資格保留 3 個月，連續 3 個月未達標才退回八折。</p>
@@ -370,16 +579,8 @@
         <table>
           <thead>
             <tr>
-              <th>顧問</th>
-              <th>代碼</th>
-              <th>當前等級</th>
-              <th>進貨折扣</th>
-              <th>本月業績進度</th>
-              <th class="num">本月訂單</th>
-              <th class="num">本月實收</th>
-              <th class="num">毛利貢獻</th>
-              <th class="num">本月贈品</th>
-              <th></th>
+              <th>顧問</th><th>代碼</th><th>當前等級</th><th>進貨折扣</th><th>本月業績進度</th>
+              <th class="num">本月訂單</th><th class="num">本月實收</th><th class="num">毛利貢獻</th><th class="num">本月贈品</th><th></th>
             </tr>
           </thead>
           <tbody id="agentsTbody"></tbody>
@@ -389,9 +590,7 @@
       <div class="panel" style="margin-top:24px">
         <h3>個人顧問分級規則</h3>
         <table style="font-size:13px">
-          <thead>
-            <tr><th>等級</th><th>月直轄業績 (原價)</th><th>進貨折扣</th><th>你的毛利率</th></tr>
-          </thead>
+          <thead><tr><th>等級</th><th>月直轄業績 (原價)</th><th>進貨折扣</th><th>你的毛利率</th></tr></thead>
           <tbody>
             <tr><td><span class="tier T1">T1</span> 新階</td><td>0 – 10 萬</td><td>8 折</td><td>20%</td></tr>
             <tr><td><span class="tier T2">T2</span> 中階</td><td>10 – 20 萬</td><td>7.5 折</td><td>15%</td></tr>
@@ -400,9 +599,7 @@
         </table>
         <h3 style="margin-top:18px">店家顧問分級規則</h3>
         <table style="font-size:13px">
-          <thead>
-            <tr><th>等級</th><th>月業績 (原價)</th><th>進貨折扣</th><th>你的毛利率</th></tr>
-          </thead>
+          <thead><tr><th>等級</th><th>月業績 (原價)</th><th>進貨折扣</th><th>你的毛利率</th></tr></thead>
           <tbody>
             <tr><td><span class="tier T2">S1</span> 店家</td><td>0 – 30 萬</td><td>7.5 折</td><td>15%</td></tr>
             <tr><td><span class="tier T3">S2</span> 店家高階</td><td>30 萬以上</td><td>7 折</td><td>10%</td></tr>
@@ -412,7 +609,7 @@
       </div>
     </section>
 
-    <!-- ─── Gifts View ───────────────────────────────── -->
+    <!-- ─── Gifts View ─────────────────────────── -->
     <section id="view-gifts" class="hidden">
       <h1 class="page-title">贈品申請</h1>
       <p class="page-sub">顧問為客人提交的滿額贈品兌換申請。</p>
@@ -448,15 +645,8 @@
         <table>
           <thead>
             <tr>
-              <th>提交時間</th>
-              <th>顧問</th>
-              <th>客人</th>
-              <th>收件地址</th>
-              <th>贈品內容</th>
-              <th class="num">消費原價</th>
-              <th class="num">兌換總值</th>
-              <th>狀態</th>
-              <th></th>
+              <th>提交時間</th><th>顧問</th><th>客人</th><th>收件地址</th><th>贈品內容</th>
+              <th class="num">消費原價</th><th class="num">兌換總值</th><th>狀態</th><th></th>
             </tr>
           </thead>
           <tbody id="giftsTbody"></tbody>
@@ -464,7 +654,7 @@
       </div>
     </section>
 
-    <!-- ─── Settlement View ──────────────────────────── -->
+    <!-- ─── Settlement View ────────────────────── -->
     <section id="view-settlement" class="hidden">
       <h1 class="page-title">月結交點</h1>
       <p class="page-sub" id="settlementSub">核對本月所有訂單，確認付廠商金額。</p>
@@ -492,8 +682,7 @@
         </div>
       </div>
 
-      <!-- Settlement status -->
-      <div id="stlStatusBar" style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #eee;border-radius:8px;padding:14px 18px;margin-bottom:16px">
+      <div id="stlStatusBar" style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.03)">
         <div>
           <span id="stlStatusLabel" style="font-weight:600;font-size:14px"></span>
           <span id="stlSettledAt" style="font-size:11px;color:#aaa;margin-left:8px"></span>
@@ -501,24 +690,16 @@
         <button id="stlSettleBtn" class="btn" onclick="markSettled()" style="font-size:12px;padding:7px 16px"></button>
       </div>
 
-      <!-- Breakdown by agent -->
-      <div style="background:#fff;border:1px solid #eee;border-radius:8px;overflow:hidden;margin-bottom:16px">
-        <div style="padding:12px 16px;border-bottom:1px solid #eee;font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase">各顧問分攤</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.03)">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase">各顧問分攤</div>
         <div id="stlAgentBreakdown" style="padding:0"></div>
       </div>
 
-      <!-- Order list -->
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>訂單號</th>
-            <th>日期</th>
-            <th>顧問</th>
-            <th>客人</th>
-            <th class="num">原價</th>
-            <th class="num">顧問折扣</th>
-            <th class="num">你付廠商</th>
-            <th>狀態</th>
+            <th>訂單號</th><th>日期</th><th>顧問</th><th>客人</th>
+            <th class="num">原價</th><th class="num">顧問折扣</th><th class="num">你付廠商</th><th>狀態</th>
           </tr></thead>
           <tbody id="stlOrdersTbody" style="cursor:pointer"></tbody>
         </table>
@@ -529,9 +710,9 @@
       </div>
     </section>
 
-    <!-- ─── Report View ─────────────────────────────── -->
+    <!-- ─── Report View ────────────────────────── -->
     <section id="view-report" class="hidden">
-      <h1 class="page-title">月結報表 — 2026 / 5月</h1>
+      <h1 class="page-title">月結報表</h1>
       <p class="page-sub">已扣除取消單。下個月 1 號自動產生上月報表。</p>
 
       <div class="stats-row">
@@ -569,7 +750,7 @@
       </div>
     </section>
 
-    <!-- ─── Customers View ──────────────────────────── -->
+    <!-- ─── Customers View ────────────────────── -->
     <section id="view-customers" class="hidden">
       <h1 class="page-title">客人管理</h1>
       <p class="page-sub">登記客人電話與所屬顧問，客人下單填電話時系統自動帶入顧問。</p>
@@ -582,7 +763,7 @@
         </div>
         <div class="stat-card">
           <div class="stat-label">已註冊會員</div>
-          <div class="stat-value" id="custStatRegistered" style="color:#19884a">—</div>
+          <div class="stat-value" id="custStatRegistered" style="color:#16a34a">—</div>
           <div class="stat-sub">可自行查看訂單</div>
         </div>
         <div class="stat-card">
@@ -590,18 +771,11 @@
           <div class="stat-value" id="custStatUnregistered" style="color:#888">—</div>
           <div class="stat-sub">僅有電話紀錄</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">已綁定 LINE</div>
-          <div class="stat-value" id="custStatLine" style="color:#06c755">—</div>
-          <div class="stat-sub">可直接推播通知</div>
-        </div>
       </div>
 
       <div class="filter-bar" style="margin-bottom:16px">
         <input type="text" id="customerSearch" placeholder="搜尋姓名 / 電話" oninput="filterCustomers()">
-        <select id="customerAgentFilter" onchange="filterCustomers()">
-          <option value="">全部顧問</option>
-        </select>
+        <select id="customerAgentFilter" onchange="filterCustomers()"><option value="">全部顧問</option></select>
         <select id="customerAccountFilter" onchange="filterCustomers()">
           <option value="">全部狀態</option>
           <option value="1">已註冊</option>
@@ -614,20 +788,14 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>姓名</th>
-            <th>電話</th>
-            <th>所屬顧問</th>
-            <th>備註</th>
-            <th>會員</th>
-            <th>LINE</th>
-            <th></th>
+            <th>姓名</th><th>電話</th><th>所屬顧問</th><th>備註</th><th>會員</th><th></th>
           </tr></thead>
           <tbody id="customersTbody"></tbody>
         </table>
       </div>
     </section>
 
-    <!-- ─── Products View ───────────────────────────── -->
+    <!-- ─── Products View ─────────────────────── -->
     <section id="view-products" class="hidden">
       <h1 class="page-title">商品管理</h1>
       <p class="page-sub">點擊商品可編輯資料、更換圖片、更新連結。新增商品後即時反映至客人目錄。</p>
@@ -636,22 +804,22 @@
         <input type="text" id="prodSearch" placeholder="搜尋商品名稱 / 代碼" oninput="renderProductList()">
         <select id="prodCatFilter" onchange="renderProductList()">
           <option value="">全部分類</option>
-          <option>臉部保養</option>
-          <option>彩妝</option>
-          <option>身體保養</option>
-          <option>頭髮護理</option>
+          <option>臉部保養</option><option>彩妝</option>
+          <option>身體保養</option><option>頭髮護理</option>
         </select>
         <div class="spacer"></div>
-        <span style="font-size:11px;color:#aaa" id="prodCount"></span>
+        <span style="font-size:11px;color:var(--t3)" id="prodCount"></span>
         <button class="btn" onclick="openNewProductModal()">+ 新增商品</button>
       </div>
 
       <div class="prod-grid" id="prodGrid"></div>
     </section>
+
   </main>
 </div>
+</div><!-- end .layout -->
 
-<!-- Order Detail Drawer ───────────────────────────── -->
+<!-- ─── Drawer ──────────────────────────────────── -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-header">
@@ -665,18 +833,12 @@
   <div class="drawer-footer" id="drawerFooter"></div>
 </div>
 
-<!-- New Agent Modal ──────────────────────────────── -->
+<!-- ─── New Agent Modal ──────────────────────────── -->
 <div class="modal-overlay" id="newAgentModal">
   <div class="modal">
     <h2>新增顧問</h2>
-    <div class="field">
-      <label>姓名</label>
-      <input type="text" id="newAgentName" placeholder="王小美">
-    </div>
-    <div class="field">
-      <label>顧問代碼</label>
-      <input type="text" id="newAgentCode" placeholder="A006">
-    </div>
+    <div class="field"><label>姓名</label><input type="text" id="newAgentName" placeholder="王小美"></div>
+    <div class="field"><label>顧問代碼</label><input type="text" id="newAgentCode" placeholder="A006"></div>
     <div class="field">
       <label>聯絡電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
       <input type="tel" id="newAgentPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
@@ -703,15 +865,12 @@
   </div>
 </div>
 
-<!-- Edit Agent Modal ─────────────────────────────── -->
+<!-- ─── Edit Agent Modal ─────────────────────────── -->
 <div class="modal-overlay" id="editAgentModal">
   <div class="modal" style="width:440px;max-width:90vw">
     <h2>編輯顧問資料</h2>
     <input type="hidden" id="editAgentOriginalCode">
-    <div class="field">
-      <label>姓名</label>
-      <input type="text" id="editAgentName">
-    </div>
+    <div class="field"><label>姓名</label><input type="text" id="editAgentName"></div>
     <div class="field">
       <label>顧問代碼 <span style="color:#aaa;font-weight:400">（修改會影響專屬連結與歷史訂單關聯）</span></label>
       <input type="text" id="editAgentCode">
@@ -743,10 +902,7 @@
       </label>
       <div style="font-size:11px;color:#888;margin-top:4px;padding-left:24px">勾選後，即使業績達標也不會自動升/降級。適用於新人保護期或特殊安排。</div>
     </div>
-    <div class="field">
-      <label>加入日期</label>
-      <input type="date" id="editAgentJoined">
-    </div>
+    <div class="field"><label>加入日期</label><input type="date" id="editAgentJoined"></div>
     <div style="display:flex;gap:8px;margin-top:18px">
       <button class="btn danger" style="padding:8px 14px" onclick="deleteAgent()">刪除</button>
       <div style="flex:1"></div>
@@ -756,22 +912,16 @@
   </div>
 </div>
 
-<!-- New Customer Modal -->
+<!-- ─── New Customer Modal ────────────────────────── -->
 <div class="modal-overlay" id="newCustomerModal">
   <div class="modal">
     <h2>新增客人</h2>
-    <div class="field">
-      <label>姓名</label>
-      <input type="text" id="newCustomerName" placeholder="陳太太">
-    </div>
+    <div class="field"><label>姓名</label><input type="text" id="newCustomerName" placeholder="陳太太"></div>
     <div class="field">
       <label>電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
       <input type="tel" id="newCustomerPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
-    <div class="field">
-      <label>所屬顧問</label>
-      <select id="newCustomerAgentSel"></select>
-    </div>
+    <div class="field"><label>所屬顧問</label><select id="newCustomerAgentSel"></select></div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn ghost" style="flex:1" onclick="closeNewCustomerModal()">取消</button>
       <button class="btn" style="flex:1" onclick="saveNewCustomer()">新增</button>
@@ -779,7 +929,7 @@
   </div>
 </div>
 
-<!-- Product Edit Modal ───────────────────────────── -->
+<!-- ─── Product Modal ────────────────────────────── -->
 <div class="modal-overlay" id="productModal">
   <div class="modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -787,48 +937,22 @@
       <button style="background:none;border:none;font-size:22px;color:#aaa;cursor:pointer" onclick="closeProductModal()">×</button>
     </div>
     <input type="hidden" id="prodEditOrigName">
-
     <div class="prod-two-col">
-      <div class="field" style="grid-column:1/-1">
-        <label>商品名稱 *</label>
-        <input type="text" id="prodName" placeholder="B.A 極光全能精萃">
-      </div>
-      <div class="field">
-        <label>商品代碼</label>
-        <input type="text" id="prodCode" placeholder="6403">
-      </div>
-      <div class="field">
-        <label>定價</label>
-        <input type="text" id="prodPrice" placeholder="NTD 22,000">
-      </div>
+      <div class="field" style="grid-column:1/-1"><label>商品名稱 *</label><input type="text" id="prodName" placeholder="B.A 極光全能精萃"></div>
+      <div class="field"><label>商品代碼</label><input type="text" id="prodCode" placeholder="6403"></div>
+      <div class="field"><label>定價</label><input type="text" id="prodPrice" placeholder="NTD 22,000"></div>
       <div class="field">
         <label>大分類</label>
-        <select id="prodMainCat">
-          <option>臉部保養</option><option>彩妝</option>
-          <option>身體保養</option><option>頭髮護理</option>
-        </select>
+        <select id="prodMainCat"><option>臉部保養</option><option>彩妝</option><option>身體保養</option><option>頭髮護理</option></select>
       </div>
-      <div class="field">
-        <label>系列名稱</label>
-        <input type="text" id="prodSeries" placeholder="B.A grandluxe">
-      </div>
-      <div class="field">
-        <label>容量 / 規格</label>
-        <input type="text" id="prodSize" placeholder="50 g">
-      </div>
-      <div class="field">
-        <label>商品類型</label>
-        <input type="text" id="prodType" placeholder="乳液・精華液">
-      </div>
+      <div class="field"><label>系列名稱</label><input type="text" id="prodSeries" placeholder="B.A grandluxe"></div>
+      <div class="field"><label>容量 / 規格</label><input type="text" id="prodSize" placeholder="50 g"></div>
+      <div class="field"><label>商品類型</label><input type="text" id="prodType" placeholder="乳液・精華液"></div>
     </div>
-
-    <!-- Image -->
     <div class="field">
       <label>商品圖片</label>
       <div style="display:flex;gap:12px;align-items:flex-start">
-        <div class="prod-img-preview" id="prodImgPreview">
-          <span style="font-size:10px;color:#ccc">預覽</span>
-        </div>
+        <div class="prod-img-preview" id="prodImgPreview"><span style="font-size:10px;color:#ccc">預覽</span></div>
         <div style="flex:1">
           <input type="text" id="prodImgUrl" placeholder="貼上圖片 URL" oninput="previewProdImg(this.value)" style="margin-bottom:8px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#666">
@@ -839,33 +963,15 @@
         </div>
       </div>
     </div>
-
-    <div class="field">
-      <label>官網連結</label>
-      <input type="url" id="prodUrl" placeholder="https://www.pola.com.tw/products/1037/index.html">
-    </div>
-    <div class="field">
-      <label>補充瓶資訊</label>
-      <input type="text" id="prodRefill" placeholder="補充瓶 NTD 21,000（序號 6404）">
-    </div>
-    <div class="field">
-      <label>標語</label>
-      <textarea id="prodTagline" rows="2" placeholder="商品標語（加粗標題式文字）"></textarea>
-    </div>
-    <div class="field">
-      <label>說明</label>
-      <textarea id="prodDesc" rows="3" placeholder="商品說明文字..."></textarea>
-    </div>
-    <div class="field">
-      <label>建議用量</label>
-      <input type="text" id="prodUsage" placeholder="建議用量：按壓１～２下">
-    </div>
+    <div class="field"><label>官網連結</label><input type="url" id="prodUrl" placeholder="https://www.pola.com.tw/products/1037/index.html"></div>
+    <div class="field"><label>補充瓶資訊</label><input type="text" id="prodRefill" placeholder="補充瓶 NTD 21,000（序號 6404）"></div>
+    <div class="field"><label>標語</label><textarea id="prodTagline" rows="2" placeholder="商品標語（加粗標題式文字）"></textarea></div>
+    <div class="field"><label>說明</label><textarea id="prodDesc" rows="3" placeholder="商品說明文字..."></textarea></div>
+    <div class="field"><label>建議用量</label><input type="text" id="prodUsage" placeholder="建議用量：按壓１～２下"></div>
     <div class="field">
       <label>補充說明（每行一條，前面加 * 號）</label>
       <textarea id="prodFootnotes" rows="3" placeholder="*美容成分：保濕成分&#10;*立體美肌：以水潤肌膚呈現立體感"></textarea>
     </div>
-
-    <!-- Variants -->
     <div style="margin-top:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <label style="font-size:12px;font-weight:600;color:#444">型號 / 色號</label>
@@ -879,7 +985,6 @@
       </div>
       <div id="prodVariantsContainer"></div>
     </div>
-
     <div style="display:flex;gap:8px;margin-top:20px;align-items:center">
       <button class="btn danger" id="prodDeleteBtn" style="padding:8px 14px" onclick="deleteProduct()">刪除商品</button>
       <div style="flex:1"></div>
@@ -889,45 +994,26 @@
   </div>
 </div>
 
-<!-- Edit Order Modal -->
+<!-- ─── Edit Order Modal ──────────────────────────── -->
 <div class="modal-overlay" id="editCustomerModal">
   <div class="modal" style="width:520px;max-width:95vw;max-height:88vh;overflow-y:auto">
     <h2>編輯訂單資料</h2>
     <input type="hidden" id="editCustOrderNum">
-
     <div class="field" style="margin-bottom:14px">
       <label>訂單日期</label>
       <input type="date" id="editOrderDate" style="border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;box-sizing:border-box">
     </div>
-
     <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:0 0 8px">收件人</div>
-    <div class="field">
-      <label>姓名</label>
-      <input type="text" id="editCustName">
-    </div>
-    <div class="field">
-      <label>電話</label>
-      <input type="tel" id="editCustPhone">
-    </div>
-    <div class="field">
-      <label>地址</label>
-      <input type="text" id="editCustAddress">
-    </div>
+    <div class="field"><label>姓名</label><input type="text" id="editCustName"></div>
+    <div class="field"><label>電話</label><input type="tel" id="editCustPhone"></div>
+    <div class="field"><label>地址</label><input type="text" id="editCustAddress"></div>
     <div class="field">
       <label>備註</label>
       <textarea id="editCustNotes" rows="2" style="width:100%;border:1px solid #ddd;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;resize:vertical"></textarea>
     </div>
-
     <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:16px 0 8px">業務與付款</div>
-    <div class="field">
-      <label>業務顧問</label>
-      <select id="editCustAgent"></select>
-    </div>
-    <div class="field">
-      <label>付款方式</label>
-      <input type="text" id="editCustPayment" placeholder="例：匯款、現金、Line Pay">
-    </div>
-
+    <div class="field"><label>業務顧問</label><select id="editCustAgent"></select></div>
+    <div class="field"><label>付款方式</label><input type="text" id="editCustPayment" placeholder="例：匯款、現金、Line Pay"></div>
     <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:16px 0 8px">商品明細</div>
     <div id="editOrderItems"></div>
     <div style="margin-top:10px">
@@ -942,19 +1028,16 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
       <div>
         <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">折扣金額（-）</label>
-        <input type="number" id="editDiscount" min="0" placeholder="0"
-          oninput="updateEditTotal()"
+        <input type="number" id="editDiscount" min="0" placeholder="0" oninput="updateEditTotal()"
           style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
       </div>
       <div>
         <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">運費（+）</label>
-        <input type="number" id="editShipping" min="0" placeholder="0"
-          oninput="updateEditTotal()"
+        <input type="number" id="editShipping" min="0" placeholder="0" oninput="updateEditTotal()"
           style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
       </div>
     </div>
     <div id="editOrderTotal" style="margin-top:10px;font-size:13px;text-align:right;color:#444;font-weight:500;background:#f9f9f9;border-radius:8px;padding:10px 12px;line-height:1.8"></div>
-
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn ghost" style="flex:1" onclick="closeEditCustomerModal()">取消</button>
       <button class="btn" style="flex:1" onclick="saveEditCustomer()">儲存</button>
@@ -962,14 +1045,71 @@
   </div>
 </div>
 
+<!-- ─── New Order Modal (Admin) ───────────────────── -->
+<div class="modal-overlay" id="newOrderModal">
+  <div class="modal" style="width:540px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <h2>新增訂單</h2>
+      <button style="background:none;border:none;font-size:22px;color:#aaa;cursor:pointer" onclick="closeNewOrderModal()">×</button>
+    </div>
+
+    <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:0 0 8px">業務與收件人</div>
+    <div class="field"><label>業務顧問</label><select id="noAgentSel"></select></div>
+    <div class="field"><label>客人姓名 *</label><input type="text" id="noCustName" placeholder="陳太太"></div>
+    <div class="field">
+      <label>電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
+      <input type="tel" id="noCustPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
+    </div>
+    <div class="field"><label>收件地址</label><input type="text" id="noCustAddress" placeholder="台北市…"></div>
+    <div class="field">
+      <label>付款方式</label>
+      <select id="noPayment">
+        <option value="匯款">匯款</option>
+        <option value="現金">現金</option>
+        <option value="Line Pay">Line Pay</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>備註</label>
+      <textarea id="noNotes" rows="2" style="width:100%;border:1px solid #ddd;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;resize:vertical"></textarea>
+    </div>
+
+    <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:16px 0 8px">商品明細</div>
+    <div id="noOrderItems"></div>
+    <div style="margin-top:8px">
+      <input id="noProductSearch" type="text" placeholder="搜尋商品名稱或代碼…" oninput="filterNoProducts(this.value)"
+        style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:6px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="noNewProduct" style="flex:1;border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none"></select>
+        <input type="number" id="noNewQty" value="1" min="1" style="width:54px;border:1px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;text-align:center;font-family:inherit;outline:none">
+        <button class="btn ghost" style="padding:7px 14px" onclick="addNoItem()">+ 加入</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+      <div>
+        <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">折扣（-）</label>
+        <input type="number" id="noDiscount" min="0" placeholder="0" oninput="updateNoTotal()"
+          style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">運費（+）</label>
+        <input type="number" id="noShipping" min="0" placeholder="0" oninput="updateNoTotal()"
+          style="width:100%;border:1px solid #ddd;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+      </div>
+    </div>
+    <div id="noOrderTotal" style="margin-top:10px;font-size:13px;background:#f9f9f9;border-radius:8px;padding:10px 12px;line-height:1.8"></div>
+
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn ghost" style="flex:1" onclick="closeNewOrderModal()">取消</button>
+      <button class="btn" style="flex:2" onclick="saveNewOrder()">建立訂單</button>
+    </div>
+  </div>
+</div>
+
 <script src="products.js?v=2"></script>
 <script src="admin.js"></script>
-
-<!-- Editorial font for "editorial" type voice -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+TC:wght@500;600&display=swap" rel="stylesheet">
-
-<!-- Tweaks Panel ─────────────────────────────────── -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&display=swap" rel="stylesheet">
 </body>
 </html>

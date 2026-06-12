@@ -22,11 +22,12 @@ function formatPhone(phone) {
 
 let ORDERS = [], AGENTS = [], CUSTOMERS = [], GIFT_REQUESTS = [];
 let editAllProducts = [];
-let dateRangeStart = '', dateRangeEnd = '';
 let kpiData = null;
 let currentView = 'orders';
 let selectedOrderId = null;
 let currentMonth = new Date().toISOString().slice(0, 7);
+let activeQuickDate = 'month';
+let activeStatusTab = '';
 
 // ── API helpers ───────────────────────────────────────────────
 
@@ -61,9 +62,7 @@ function createdAtFmt(iso) {
 // ── Load data from API ────────────────────────────────────────
 
 function ordersApiUrl() {
-  if (dateRangeStart && dateRangeEnd) {
-    return `/api/admin/orders?start_date=${dateRangeStart}&end_date=${dateRangeEnd}`;
-  }
+  if (activeQuickDate === 'all') return `/api/admin/orders`;
   return `/api/admin/orders?month=${currentMonth}`;
 }
 
@@ -84,14 +83,8 @@ async function loadData() {
 function updateMonthDisplay() {
   const el = document.getElementById('currentMonthLabel');
   if (!el) return;
-  if (dateRangeStart && dateRangeEnd) {
-    el.textContent = `${dateRangeStart} ～ ${dateRangeEnd}`;
-    el.style.color = '#f59e0b';
-  } else {
-    const [y, m] = currentMonth.split('-');
-    el.textContent = `${y} 年 ${parseInt(m)} 月`;
-    el.style.color = '';
-  }
+  const [y, m] = currentMonth.split('-');
+  el.textContent = `${y} 年 ${parseInt(m)} 月`;
 }
 
 // ── Init ─────────────────────────────────────────────────────
@@ -125,12 +118,12 @@ async function init() {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
   });
   document.getElementById('searchInput').addEventListener('input', renderOrders);
-  document.getElementById('statusFilter').addEventListener('change', renderOrders);
   document.getElementById('agentFilter').addEventListener('change', renderOrders);
   document.getElementById('agentSearch').addEventListener('input', renderAgents);
 
   updateMonthDisplay();
   renderKPIs();
+  renderDashboard();
   renderOrders();
   renderAgents();
   renderReport();
@@ -139,17 +132,27 @@ async function init() {
   renderCustomers();
   updatePendingBadge();
   loadGifts();
+  switchView('dashboard');
 }
+
+const VIEW_LABELS = {
+  dashboard: '首頁', orders: '訂單管理', settlement: '月結交點',
+  agents: '顧問管理', gifts: '贈品申請', customers: '客人管理',
+  report: '月結報表', products: '商品管理',
+};
 
 function switchView(view) {
   currentView = view;
   document.querySelectorAll('.sidenav button').forEach(b => {
     b.classList.toggle('active', b.dataset.view === view);
   });
-  ['orders', 'agents', 'report', 'products', 'customers', 'settlement', 'gifts'].forEach(v => {
+  ['dashboard', 'orders', 'agents', 'report', 'products', 'customers', 'settlement', 'gifts'].forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) el.classList.toggle('hidden', v !== view);
   });
+  const bc = document.getElementById('pageBreadcrumb');
+  if (bc) bc.textContent = VIEW_LABELS[view] || view;
+  if (view === 'dashboard') renderDashboard();
   if (view === 'products') renderProductList();
   if (view === 'settlement') renderSettlement();
   if (view === 'gifts') loadGifts();
@@ -178,10 +181,26 @@ function renderKPIs() {
 
 function renderOrders() {
   const search = document.getElementById('searchInput').value.trim().toLowerCase();
-  const statusF = document.getElementById('statusFilter').value;
   const agentF = document.getElementById('agentFilter').value;
 
   let list = ORDERS.slice();
+
+  // Quick date filter
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (activeQuickDate === 'today') {
+    list = list.filter(o => o.created_at && o.created_at.slice(0, 10) === todayStr);
+  } else if (activeQuickDate === 'week') {
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    const weekStart = d.toISOString().slice(0, 10);
+    list = list.filter(o => o.created_at && o.created_at.slice(0, 10) >= weekStart);
+  }
+
+  // Update status tab counts
+  ['待確認', '已確認', '已付款', '已出貨', '已取消'].forEach(s => {
+    const el = document.getElementById(`stab-count-${s}`);
+    if (el) { const n = list.filter(o => o.status === s).length; el.textContent = n || ''; }
+  });
+
   if (search) {
     list = list.filter(o =>
       o.order_number.toLowerCase().includes(search) ||
@@ -189,7 +208,7 @@ function renderOrders() {
       (o.customer_phone || '').includes(search)
     );
   }
-  if (statusF) list = list.filter(o => o.status === statusF);
+  if (activeStatusTab) list = list.filter(o => o.status === activeStatusTab);
   if (agentF) list = list.filter(o => o.agent_code === agentF);
 
   const tbody = document.getElementById('ordersTbody');
@@ -201,16 +220,21 @@ function renderOrders() {
   tbody.innerHTML = list.map(o => {
     const agent = AGENTS.find(a => a.code === o.agent_code);
     const tier = o.agent_tier || '—';
+    const checked = selectedOrders.has(o.order_number) ? 'checked' : '';
     return `
-    <tr class="row-clickable" onclick="openDrawer('${o.order_number}')">
-      <td class="mono" style="font-weight:600">${o.order_number}</td>
-      <td style="color:#666;font-size:12px">${createdAtFmt(o.created_at)}</td>
-      <td>${agent ? agent.name : (o.agent_code || '未指定')} ${o.agent_tier ? `<span class="tier T${tier}">T${tier}</span>` : ''}</td>
-      <td>${o.customer_name}</td>
-      <td class="num mono">${fmt(o.retail_total)}</td>
-      <td class="num mono">${fmt(o.agent_cost_total)}</td>
-      <td class="num mono" style="color:#19884a">${fmt(o.your_profit)}</td>
-      <td><span class="status ${o.status}">${o.status}</span></td>
+    <tr class="row-clickable">
+      <td class="col-check" onclick="event.stopPropagation()">
+        <input type="checkbox" class="row-check order-row-check" data-id="${o.order_number}" ${checked}
+          onchange="toggleSelectOrder('${o.order_number}', this.checked)">
+      </td>
+      <td class="mono" style="font-weight:600" onclick="openDrawer('${o.order_number}')">${o.order_number}</td>
+      <td style="color:#666;font-size:12px" onclick="openDrawer('${o.order_number}')">${createdAtFmt(o.created_at)}</td>
+      <td onclick="openDrawer('${o.order_number}')">${agent ? agent.name : (o.agent_code || '未指定')} ${o.agent_tier ? `<span class="tier T${tier}">T${tier}</span>` : ''}</td>
+      <td onclick="openDrawer('${o.order_number}')">${o.customer_name}</td>
+      <td class="num mono" onclick="openDrawer('${o.order_number}')">${fmt(o.retail_total)}</td>
+      <td class="num mono" onclick="openDrawer('${o.order_number}')">${fmt(o.agent_cost_total)}</td>
+      <td class="num mono" style="color:#19884a" onclick="openDrawer('${o.order_number}')">${fmt(o.your_profit)}</td>
+      <td onclick="openDrawer('${o.order_number}')"><span class="status ${o.status}">${o.status}</span></td>
     </tr>`;
   }).join('');
 }
@@ -273,6 +297,11 @@ function openDrawer(orderNumber) {
       ${o.shipping_fee > 0 ? `<div class="breakdown-row"><span class="label">運費</span><span class="mono">+${fmt(o.shipping_fee)}</span></div>` : ''}
       ${(o.discount_amount > 0 || o.shipping_fee > 0) ? `<div class="breakdown-row"><span class="label" style="font-weight:600">客人實付</span><span class="mono" style="font-weight:700">${fmt(o.final_amount)}</span></div>` : ''}
       ${discountLine}
+    </div>
+    <div class="section-title" style="margin-top:16px">內部備注</div>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <textarea id="internalNotesInput" rows="3" placeholder="僅自己可見，例如：已私訊確認付款" style="flex:1;border:1px solid #e0ddd8;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;background:#fff">${o.internal_notes || ''}</textarea>
+      <button class="btn ghost sm" onclick="saveInternalNotes()" style="flex-shrink:0;margin-top:2px">儲存</button>
     </div>`;
 
   const footer = document.getElementById('drawerFooter');
@@ -284,9 +313,13 @@ function openDrawer(orderNumber) {
   } else if (o.status === '已確認') {
     actions = `
       <button class="btn ghost" style="flex:1" onclick="updateStatus('待確認')">退回待確認</button>
+      <button class="btn" style="flex:2" onclick="updateStatus('已付款')">確認收款</button>`;
+  } else if (o.status === '已付款') {
+    actions = `
+      <button class="btn ghost" style="flex:1" onclick="updateStatus('已確認')">退回已確認</button>
       <button class="btn" style="flex:2" onclick="updateStatus('已出貨')">標記已出貨</button>`;
   } else if (o.status === '已出貨') {
-    actions = `<button class="btn ghost" style="flex:1" onclick="updateStatus('已確認')">退回已確認</button>`;
+    actions = `<button class="btn ghost" style="flex:1" onclick="updateStatus('已付款')">退回已付款</button>`;
   } else {
     actions = `<button class="btn ghost" style="flex:1" onclick="updateStatus('待確認')">復原訂單</button>`;
   }
@@ -319,6 +352,23 @@ async function deleteOrder() {
     alert('刪除失敗：' + e.message);
   }
   selectedOrderId = null;
+}
+
+async function saveInternalNotes() {
+  if (!selectedOrderId) return;
+  const notes = document.getElementById('internalNotesInput').value;
+  try {
+    const updated = await apiFetch(`/api/admin/orders/${selectedOrderId}/internal-notes`, {
+      method: 'PATCH',
+      body: JSON.stringify({ internal_notes: notes }),
+    });
+    const idx = ORDERS.findIndex(o => o.order_number === selectedOrderId);
+    if (idx !== -1) ORDERS[idx] = updated;
+    document.getElementById('internalNotesInput').style.borderColor = '#19884a';
+    setTimeout(() => { const el = document.getElementById('internalNotesInput'); if (el) el.style.borderColor = '#e0ddd8'; }, 1500);
+  } catch (e) {
+    alert('儲存失敗');
+  }
 }
 
 async function updateStatus(newStatus) {
@@ -638,12 +688,10 @@ let filteredCustomers = [];
 function renderCustomerStats() {
   const total = CUSTOMERS.length;
   const registered = CUSTOMERS.filter(c => c.has_account).length;
-  const lined = CUSTOMERS.filter(c => c.line_user_id).length;
   const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   el('custStatTotal', total);
   el('custStatRegistered', registered);
   el('custStatUnregistered', total - registered);
-  el('custStatLine', lined);
 }
 
 function filterCustomers() {
@@ -665,12 +713,19 @@ function renderCustomers() {
   const tbody = document.getElementById('customersTbody');
   if (!tbody) return;
   if (!filteredCustomers.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-row">尚無客人資料</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-row">尚無客人資料</td></tr>`;
     return;
   }
-  tbody.innerHTML = filteredCustomers.map(c => `
+  tbody.innerHTML = filteredCustomers.map(c => {
+    const retail = c.total_retail ? `NTD ${c.total_retail.toLocaleString()}` : '—';
+    const cnt = c.order_count || 0;
+    const lastDate = c.last_order_at ? c.last_order_at.slice(0, 10) : null;
+    const statsText = cnt > 0
+      ? `<div style="font-size:11px;color:#aaa;margin-top:2px">${cnt} 筆 · ${retail}${lastDate ? ' · ' + lastDate : ''}</div>`
+      : `<div style="font-size:11px;color:#ddd;margin-top:2px">尚無消費紀錄</div>`;
+    return `
     <tr>
-      <td>${c.name}</td>
+      <td><div>${c.name}</div>${statsText}</td>
       <td class="mono">${formatPhone(c.phone)}</td>
       <td>${c.agent_name ? `${c.agent_name}<span style="color:#aaa;font-size:11px;margin-left:4px">(${c.agent_code})</span>` : '<span style="color:#ccc">未指定</span>'}</td>
       <td style="color:#888;font-size:12px">${c.notes || ''}</td>
@@ -678,13 +733,9 @@ function renderCustomers() {
         ? '<span class="status 已出貨" style="background:#e7f7ec;color:#19884a">已註冊</span>'
         : '<span style="color:#bbb;font-size:12px">未註冊</span>'
       }</td>
-      <td>${c.line_user_id
-        ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#e8f8ee;color:#06c755;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">LINE</span>'
-        : '<span style="color:#ddd;font-size:12px">—</span>'
-      }</td>
       <td><button class="btn ghost sm" onclick="deleteCustomer('${c.phone}', '${c.name}')">刪除</button></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function populateCustomerAgentFilter() {
@@ -732,17 +783,38 @@ async function deleteCustomer(phone, name) {
   }
 }
 
+// ── Quick date & status tab ───────────────────────────────────
+
+async function setQuickDate(type) {
+  const needsReload = (type === 'all') !== (activeQuickDate === 'all');
+  activeQuickDate = type;
+  document.querySelectorAll('.quick-date-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.date === type));
+  if (needsReload) {
+    const res = await apiFetch(ordersApiUrl());
+    ORDERS = res.items;
+  }
+  renderOrders();
+  updatePendingBadge();
+}
+
+function setStatusTab(status) {
+  activeStatusTab = status;
+  document.querySelectorAll('.status-tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.status === status));
+  renderOrders();
+}
+
 // ── Month switcher ────────────────────────────────────────────
 
 async function changeMonth(val) {
   if (!val) return;
   currentMonth = val;
-  dateRangeStart = '';
-  dateRangeEnd = '';
-  const s = document.getElementById('dateStart');
-  const e = document.getElementById('dateEnd');
-  if (s) s.value = '';
-  if (e) e.value = '';
+  if (activeQuickDate === 'all') {
+    activeQuickDate = 'month';
+    document.querySelectorAll('.quick-date-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.date === 'month'));
+  }
   await loadData();
   renderKPIs();
   renderOrders();
@@ -750,31 +822,6 @@ async function changeMonth(val) {
   renderReport();
   renderSettlement();
   updatePendingBadge();
-}
-
-async function applyDateRange() {
-  const s = document.getElementById('dateStart')?.value;
-  const e = document.getElementById('dateEnd')?.value;
-  if (!s || !e) { alert('請選擇開始和結束日期'); return; }
-  if (s > e) { alert('開始日期不可晚於結束日期'); return; }
-  dateRangeStart = s;
-  dateRangeEnd = e;
-  currentMonth = s.slice(0, 7);
-  await loadData();
-  renderKPIs();
-  renderOrders();
-  updatePendingBadge();
-}
-
-function clearDateRange() {
-  dateRangeStart = '';
-  dateRangeEnd = '';
-  const s = document.getElementById('dateStart');
-  const e = document.getElementById('dateEnd');
-  if (s) s.value = '';
-  if (e) e.value = '';
-  updateMonthDisplay();
-  loadData().then(() => { renderKPIs(); renderOrders(); updatePendingBadge(); });
 }
 
 // ── PDF 列印通用函式 ──────────────────────────────────────────
@@ -1656,6 +1703,332 @@ function updateGiftBadge() {
     badge.textContent = pending;
     badge.style.display = pending > 0 ? '' : 'none';
   }
+}
+
+// ── Dashboard ─────────────────────────────────────────────────
+
+function renderDashboard() {
+  if (!kpiData) return;
+  const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  el('dKpiOrders', kpiData.order_count);
+  el('dKpiOrderSub', `含取消單 ${kpiData.cancelled_count} 筆`);
+  el('dKpiRetail', fmt(kpiData.retail_total));
+  el('dKpiAgentCost', fmt(kpiData.agent_cost_total));
+  el('dKpiProfit', fmt(kpiData.your_profit));
+
+  // Pending alert
+  const pending = ORDERS.filter(o => o.status === '待確認').length;
+  const alert = document.getElementById('dashPendingAlert');
+  const alertText = document.getElementById('dashPendingText');
+  if (alert && alertText) {
+    if (pending > 0) {
+      alertText.textContent = `有 ${pending} 筆訂單待確認`;
+      alert.classList.remove('hidden');
+    } else {
+      alert.classList.add('hidden');
+    }
+  }
+
+  // Recent orders
+  const recent = ORDERS.slice(0, 10);
+  const tbody = document.getElementById('dashRecentOrders');
+  if (tbody) {
+    if (!recent.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-row">本月尚無訂單</td></tr>`;
+    } else {
+      tbody.innerHTML = recent.map(o => {
+        const agent = AGENTS.find(a => a.code === o.agent_code);
+        return `<tr class="row-clickable" onclick="switchView('orders');setTimeout(()=>openDrawer('${o.order_number}'),50)">
+          <td class="mono" style="font-weight:600">${o.order_number}</td>
+          <td style="color:#666;font-size:12px">${createdAtFmt(o.created_at)}</td>
+          <td>${agent ? agent.name : (o.agent_code || '—')}</td>
+          <td>${o.customer_name}</td>
+          <td class="num mono">${fmt(o.retail_total)}</td>
+          <td><span class="status ${o.status}">${o.status}</span></td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  // Agent performance chart
+  const agentChart = document.getElementById('dashAgentChart');
+  if (agentChart && AGENTS.length) {
+    const sorted = AGENTS.map(a => ({ name: a.name, retail: a.monthly_stats?.retail_sum || 0 }))
+      .sort((a, b) => b.retail - a.retail).slice(0, 6);
+    const max = Math.max(...sorted.map(x => x.retail), 1);
+    agentChart.innerHTML = sorted.map(x => `
+      <div class="bar-row">
+        <div class="nm" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.name}</div>
+        <div class="bar"><div class="bar-fill" style="width:${(x.retail / max) * 100}%"></div></div>
+        <div class="amt mono">${fmt(x.retail)}</div>
+      </div>`).join('') || '<div style="color:var(--t3);font-size:13px">尚無資料</div>';
+  }
+
+  // Status distribution chart
+  const statusChart = document.getElementById('dashStatusChart');
+  if (statusChart) {
+    const statuses = ['待確認', '已確認', '已付款', '已出貨', '已取消'];
+    const colors = { '待確認': '#a07000', '已確認': '#1a56c4', '已付款': '#c05c00', '已出貨': '#1a6e3e', '已取消': '#999' };
+    const bgColors = { '待確認': '#fef8e7', '已確認': '#e8f0fe', '已付款': '#fdf0e8', '已出貨': '#e8f5ed', '已取消': '#f4f4f2' };
+    const total = ORDERS.length || 1;
+    statusChart.innerHTML = statuses.map(s => {
+      const n = ORDERS.filter(o => o.status === s).length;
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:5px 0;font-size:13px">
+          <div style="width:8px;height:8px;border-radius:50%;background:${colors[s]};flex-shrink:0"></div>
+          <div style="flex:1;color:#555">${s}</div>
+          <div style="width:80px;background:#eeece8;height:8px;border-radius:4px;overflow:hidden">
+            <div style="width:${(n / total) * 100}%;height:100%;background:${colors[s]};border-radius:4px;transition:width .5s"></div>
+          </div>
+          <div style="min-width:28px;text-align:right;font-weight:600;color:${colors[s]}">${n}</div>
+        </div>`;
+    }).join('');
+  }
+}
+
+// ── New Order from Admin ─────────────────────────────────────
+
+let noItems = [];
+let noAllProducts = [];
+
+function openNewOrderModal() {
+  noItems = [];
+  noAllProducts = [];
+
+  // Populate agent dropdown
+  const agentSel = document.getElementById('noAgentSel');
+  agentSel.innerHTML = '<option value="">（未指定）</option>' +
+    AGENTS.map(a => `<option value="${a.code}">${a.name} (${a.code})</option>`).join('');
+
+  // Reset fields
+  ['noCustName','noCustPhone','noCustAddress','noNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('noPayment').value = '匯款';
+  document.getElementById('noDiscount').value = '';
+  document.getElementById('noShipping').value = '';
+  document.getElementById('noProductSearch').value = '';
+
+  // Build product list
+  loadAdminProducts();
+  adminProducts.forEach(p => {
+    const price = parseInt((p.price || '').replace(/[^0-9]/g, '')) || 0;
+    const base = { name: p.name, price, series: p.series || '', code: p.code || '' };
+    if (p.variants && p.variants.length > 0) {
+      p.variants.forEach(v => noAllProducts.push({
+        ...base, code: v.code || p.code || '',
+        variant_label: v.label || '',
+        display: `${p.name}｜${v.label}`,
+        searchText: `${p.name} ${v.label} ${v.code || ''} ${p.code || ''}`.toLowerCase(),
+      }));
+    } else {
+      noAllProducts.push({ ...base, variant_label: '', display: p.name,
+        searchText: `${p.name} ${p.code || ''}`.toLowerCase() });
+    }
+  });
+
+  fillNoProductSelect('');
+  renderNoItems();
+  document.getElementById('newOrderModal').classList.add('open');
+}
+
+function closeNewOrderModal() {
+  document.getElementById('newOrderModal').classList.remove('open');
+}
+
+function fillNoProductSelect(query) {
+  const q = query.toLowerCase().trim();
+  const filtered = q ? noAllProducts.filter(p => p.searchText.includes(q)) : noAllProducts;
+  const sel = document.getElementById('noNewProduct');
+  sel.innerHTML = '<option value="">選擇商品…</option>' +
+    filtered.map((p, i) =>
+      `<option value="${i}" data-name="${p.name.replace(/"/g,'&quot;')}" data-price="${p.price}"
+        data-series="${(p.series||'').replace(/"/g,'&quot;')}" data-code="${p.code.replace(/"/g,'&quot;')}"
+        data-variant="${(p.variant_label||'').replace(/"/g,'&quot;')}"
+        >${p.code ? `[${p.code}] ` : ''}${p.display} — NTD ${p.price.toLocaleString()}</option>`
+    ).join('');
+}
+
+function filterNoProducts(query) { fillNoProductSelect(query); }
+
+function addNoItem() {
+  const sel = document.getElementById('noNewProduct');
+  const opt = sel.selectedOptions[0];
+  if (!opt || opt.value === '') return;
+  const qty = Math.max(1, parseInt(document.getElementById('noNewQty').value) || 1);
+  noItems.push({
+    product_code: opt.dataset.code || null,
+    product_name: opt.dataset.name,
+    product_series: opt.dataset.series || null,
+    variant_label: opt.dataset.variant || null,
+    unit_price: parseInt(opt.dataset.price) || 0,
+    quantity: qty,
+  });
+  sel.value = '';
+  document.getElementById('noNewQty').value = 1;
+  renderNoItems();
+}
+
+function removeNoItem(idx) {
+  noItems.splice(idx, 1);
+  renderNoItems();
+}
+
+function renderNoItems() {
+  const container = document.getElementById('noOrderItems');
+  if (!noItems.length) {
+    container.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">（尚無商品）</div>';
+  } else {
+    container.innerHTML = noItems.map((item, idx) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f2f2f2">
+        <div style="flex:1;font-size:13px">${item.product_code ? `<span style="color:#bbb;font-size:11px;margin-right:3px">${item.product_code}</span>` : ''}${item.product_name}</div>
+        <input type="number" value="${item.quantity}" min="1"
+          style="width:52px;border:1px solid #ddd;border-radius:5px;padding:5px 6px;font-size:13px;text-align:center;font-family:inherit;outline:none"
+          onchange="noItems[${idx}].quantity=Math.max(1,parseInt(this.value)||1);updateNoTotal()">
+        <div style="min-width:80px;text-align:right;font-size:12px;color:#555">NTD ${item.unit_price.toLocaleString()}</div>
+        <button onclick="removeNoItem(${idx})" style="background:none;border:none;cursor:pointer;color:#c00;font-size:18px;line-height:1;padding:0 2px">×</button>
+      </div>`).join('');
+  }
+  updateNoTotal();
+}
+
+function updateNoTotal() {
+  const subtotal = noItems.reduce((s, i) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
+  const discount = parseInt(document.getElementById('noDiscount')?.value) || 0;
+  const shipping = parseInt(document.getElementById('noShipping')?.value) || 0;
+  const final = subtotal - discount + shipping;
+  const el = document.getElementById('noOrderTotal');
+  if (!subtotal) { if (el) el.textContent = ''; return; }
+  el.innerHTML =
+    `<div style="display:flex;justify-content:space-between;color:#888"><span>原價小計</span><span class="mono">NTD ${subtotal.toLocaleString()}</span></div>` +
+    (discount ? `<div style="display:flex;justify-content:space-between;color:#e55"><span>折扣</span><span class="mono">−NTD ${discount.toLocaleString()}</span></div>` : '') +
+    (shipping ? `<div style="display:flex;justify-content:space-between;color:#888"><span>運費</span><span class="mono">+NTD ${shipping.toLocaleString()}</span></div>` : '') +
+    `<div style="display:flex;justify-content:space-between;font-weight:700;color:#111;border-top:1px solid #eee;margin-top:6px;padding-top:6px"><span>客人實付</span><span class="mono">NTD ${final.toLocaleString()}</span></div>`;
+}
+
+async function saveNewOrder() {
+  const custName = document.getElementById('noCustName').value.trim();
+  if (!custName) { alert('請填寫客人姓名'); return; }
+  if (!noItems.length) { alert('請至少加入一項商品'); return; }
+  const body = {
+    agent_code: document.getElementById('noAgentSel').value || null,
+    customer_name: custName,
+    customer_phone: document.getElementById('noCustPhone').value.trim() || null,
+    customer_address: document.getElementById('noCustAddress').value.trim() || null,
+    payment_method: document.getElementById('noPayment').value,
+    notes: document.getElementById('noNotes').value.trim() || null,
+    discount_amount: parseInt(document.getElementById('noDiscount').value) || 0,
+    shipping_fee: parseInt(document.getElementById('noShipping').value) || 0,
+    items: noItems.map(i => ({
+      product_code: i.product_code || null,
+      product_name: i.product_name,
+      product_series: i.product_series || null,
+      variant_label: i.variant_label || null,
+      unit_price: i.unit_price,
+      quantity: i.quantity,
+    })),
+  };
+  try {
+    await fetch(ADMIN_API + '/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(r => { if (!r.ok) throw new Error('建立失敗'); return r.json(); });
+    closeNewOrderModal();
+    await changeMonth(currentMonth);
+  } catch (e) {
+    alert('建立失敗：' + e.message);
+  }
+}
+
+// ── Bulk Selection ───────────────────────────────────────────
+
+let selectedOrders = new Set();
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll('#ordersTbody .order-row-check').forEach(cb => {
+    cb.checked = checked;
+    if (checked) selectedOrders.add(cb.dataset.id);
+    else selectedOrders.delete(cb.dataset.id);
+  });
+  updateBulkBar();
+}
+
+function toggleSelectOrder(id, checked) {
+  if (checked) selectedOrders.add(id);
+  else selectedOrders.delete(id);
+  updateBulkBar();
+  const allCbs = document.querySelectorAll('#ordersTbody .order-row-check');
+  const allChecked = allCbs.length > 0 && [...allCbs].every(cb => cb.checked);
+  const selectAll = document.getElementById('selectAllOrders');
+  if (selectAll) selectAll.checked = allChecked;
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const count = document.getElementById('bulkCount');
+  if (!bar) return;
+  if (selectedOrders.size > 0) {
+    bar.classList.add('visible');
+    if (count) count.textContent = `已選 ${selectedOrders.size} 筆`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function clearBulkSelection() {
+  selectedOrders.clear();
+  document.querySelectorAll('#ordersTbody .order-row-check').forEach(cb => cb.checked = false);
+  const selectAll = document.getElementById('selectAllOrders');
+  if (selectAll) selectAll.checked = false;
+  updateBulkBar();
+}
+
+async function applyBulkStatus() {
+  const status = document.getElementById('bulkStatusSel').value;
+  if (!status) { alert('請選擇要更新的狀態'); return; }
+  if (selectedOrders.size === 0) return;
+  if (!confirm(`確定將 ${selectedOrders.size} 筆訂單更新為「${status}」？`)) return;
+  try {
+    await Promise.all([...selectedOrders].map(id =>
+      apiFetch(`/api/admin/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
+    ));
+    clearBulkSelection();
+    await changeMonth(currentMonth);
+  } catch (e) {
+    alert('批量更新失敗，請重試');
+  }
+}
+
+// ── CSV Export ───────────────────────────────────────────────
+
+function exportOrdersCSV() {
+  const list = ORDERS.slice();
+  const headers = ['訂單號','日期','顧問','客人','電話','原價','實收','毛利','狀態'];
+  const rows = list.map(o => {
+    const agent = AGENTS.find(a => a.code === o.agent_code);
+    return [
+      o.order_number,
+      createdAtFmt(o.created_at),
+      agent ? agent.name : (o.agent_code || '未指定'),
+      o.customer_name,
+      o.customer_phone || '',
+      o.retail_total || 0,
+      o.agent_cost_total || 0,
+      o.your_profit || 0,
+      o.status,
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+  const bom = '﻿';
+  const csv = bom + [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `POLA_訂單_${currentMonth}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 init();
