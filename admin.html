@@ -334,7 +334,7 @@ th.col-check,td.col-check { width:40px; padding-right:0; }
 @media (max-width:600px) { .prod-two-col { grid-template-columns:1fr; } }
 </style>
 </head>
-<body>
+<body autocomplete="off">
 <div class="layout">
 
 <!-- ─── Sidebar ─────────────────────────────────── -->
@@ -837,11 +837,11 @@ th.col-check,td.col-check { width:40px; padding-right:0; }
 <div class="modal-overlay" id="newAgentModal">
   <div class="modal">
     <h2>新增顧問</h2>
-    <div class="field"><label>姓名</label><input type="text" id="newAgentName" placeholder="王小美"></div>
+    <div class="field"><label>姓名</label><input type="text" id="newAgentName" placeholder="王小美" autocomplete="off"></div>
     <div class="field"><label>顧問代碼</label><input type="text" id="newAgentCode" placeholder="A006"></div>
     <div class="field">
       <label>聯絡電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
-      <input type="tel" id="newAgentPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
+      <input type="tel" id="newAgentPhone" placeholder="0912345678" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <div class="field">
       <label>顧問類型</label>
@@ -870,14 +870,14 @@ th.col-check,td.col-check { width:40px; padding-right:0; }
   <div class="modal" style="width:440px;max-width:90vw">
     <h2>編輯顧問資料</h2>
     <input type="hidden" id="editAgentOriginalCode">
-    <div class="field"><label>姓名</label><input type="text" id="editAgentName"></div>
+    <div class="field"><label>姓名</label><input type="text" id="editAgentName" autocomplete="off"></div>
     <div class="field">
       <label>顧問代碼 <span style="color:#aaa;font-weight:400">（修改會影響專屬連結與歷史訂單關聯）</span></label>
       <input type="text" id="editAgentCode">
     </div>
     <div class="field">
       <label>聯絡電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
-      <input type="tel" id="editAgentPhone" oninput="this.value=this.value.replace(/\D/g,'')">
+      <input type="tel" id="editAgentPhone" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <div class="field">
       <label>顧問類型</label>
@@ -916,10 +916,10 @@ th.col-check,td.col-check { width:40px; padding-right:0; }
 <div class="modal-overlay" id="newCustomerModal">
   <div class="modal">
     <h2>新增客人</h2>
-    <div class="field"><label>姓名</label><input type="text" id="newCustomerName" placeholder="陳太太"></div>
+    <div class="field"><label>姓名</label><input type="text" id="newCustomerName" placeholder="陳太太" autocomplete="off"></div>
     <div class="field">
       <label>電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
-      <input type="tel" id="newCustomerPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
+      <input type="tel" id="newCustomerPhone" placeholder="0912345678" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <div class="field"><label>所屬顧問</label><select id="newCustomerAgentSel"></select></div>
     <div style="display:flex;gap:8px;margin-top:16px">
@@ -1004,8 +1004,8 @@ th.col-check,td.col-check { width:40px; padding-right:0; }
       <input type="date" id="editOrderDate" style="border:1px solid #ddd;border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;box-sizing:border-box">
     </div>
     <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:0 0 8px">收件人</div>
-    <div class="field"><label>姓名</label><input type="text" id="editCustName"></div>
-    <div class="field"><label>電話</label><input type="tel" id="editCustPhone"></div>
+    <div class="field"><label>姓名</label><input type="text" id="editCustName" autocomplete="off"></div>
+    <div class="field"><label>電話</label><input type="tel" id="editCustPhone" autocomplete="off"></div>
     <div class="field"><label>地址</label><input type="text" id="editCustAddress"></div>
     <div class="field">
       <label>備註</label>
@@ -1055,10 +1055,10 @@ th.col-check,td.col-check { width:40px; padding-right:0; }
 
     <div style="font-size:11px;color:#888;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin:0 0 8px">業務與收件人</div>
     <div class="field"><label>業務顧問</label><select id="noAgentSel"></select></div>
-    <div class="field"><label>客人姓名 *</label><input type="text" id="noCustName" placeholder="陳太太"></div>
+    <div class="field"><label>客人姓名 *</label><input type="text" id="noCustName" placeholder="陳太太" autocomplete="off"></div>
     <div class="field">
       <label>電話 <span style="color:#aaa;font-weight:400">只需輸入數字</span></label>
-      <input type="tel" id="noCustPhone" placeholder="0912345678" oninput="this.value=this.value.replace(/\D/g,'')">
+      <input type="tel" id="noCustPhone" placeholder="0912345678" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <div class="field"><label>收件地址</label><input type="text" id="noCustAddress" placeholder="台北市…"></div>
     <div class="field">
