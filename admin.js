@@ -263,12 +263,22 @@ function openDrawer(orderNumber) {
       </tr>`;
   }).join('');
 
-  const discountLine = o.agent_discount
-    ? `<div class="breakdown-row"><span class="label">業務折扣</span><span class="mono">${o.agent_discount * 10}折</span></div>
-       <div class="breakdown-row total"><span>業務應付給你</span><span class="mono">${fmt(o.agent_cost_total)}</span></div>
-       <div class="breakdown-row" style="margin-top:10px"><span class="label">你的進貨成本（6折）</span><span class="mono" style="color:#999">−${fmt(o.your_cost)}</span></div>
-       <div class="breakdown-row total"><span>你的毛利</span><span class="profit mono">${fmt(o.your_profit)}</span></div>`
-    : `<div class="breakdown-row" style="color:#aaa;font-size:12px"><span>尚未指定業務，金額待確認</span></div>`;
+  const discountSection = o.agent_discount
+    ? `<div class="breakdown-section">
+         <div class="breakdown-row"><span class="bd-label">業務折扣</span><span class="mono" style="color:#888">${o.agent_discount * 10}折</span></div>
+       </div>
+       <div class="breakdown-section bds-income">
+         <div class="breakdown-row"><span class="bd-main">業務應付給你</span><span class="amount-income">${fmt(o.agent_cost_total)}</span></div>
+       </div>
+       <div class="breakdown-section">
+         <div class="breakdown-row"><span class="bd-label">你的進貨成本（6折）</span><span class="amount-cost">−${fmt(o.your_cost)}</span></div>
+       </div>
+       <div class="breakdown-section bds-profit">
+         <div class="breakdown-row"><span class="bd-main">你的毛利</span><span class="amount-profit">${fmt(o.your_profit)}</span></div>
+       </div>`
+    : `<div class="breakdown-section">
+         <div class="breakdown-row" style="color:#aaa;font-size:12px">尚未指定業務，金額待確認</div>
+       </div>`;
 
   document.getElementById('drawerBody').innerHTML = `
     <dl class="info-grid">
@@ -292,11 +302,13 @@ function openDrawer(orderNumber) {
       <tbody>${itemsHTML}</tbody>
     </table>
     <div class="breakdown-card">
-      <div class="breakdown-row"><span class="label">原價總額（業績計算）</span><span class="mono">${fmt(o.retail_total)}</span></div>
-      ${o.discount_amount > 0 ? `<div class="breakdown-row"><span class="label">折扣</span><span class="mono" style="color:#e55">−${fmt(o.discount_amount)}</span></div>` : ''}
-      ${o.shipping_fee > 0 ? `<div class="breakdown-row"><span class="label">運費</span><span class="mono">+${fmt(o.shipping_fee)}</span></div>` : ''}
-      ${(o.discount_amount > 0 || o.shipping_fee > 0) ? `<div class="breakdown-row"><span class="label" style="font-weight:600">客人實付</span><span class="mono" style="font-weight:700">${fmt(o.final_amount)}</span></div>` : ''}
-      ${discountLine}
+      <div class="breakdown-section">
+        <div class="breakdown-row"><span class="bd-label">原價總額（業績計算）</span><span class="amount-retail">${fmt(o.retail_total)}</span></div>
+        ${o.discount_amount > 0 ? `<div class="breakdown-row"><span class="bd-label">折扣</span><span class="amount-cost">−${fmt(o.discount_amount)}</span></div>` : ''}
+        ${o.shipping_fee > 0 ? `<div class="breakdown-row"><span class="bd-label">運費</span><span class="mono">+${fmt(o.shipping_fee)}</span></div>` : ''}
+        ${(o.discount_amount > 0 || o.shipping_fee > 0) ? `<div class="breakdown-row"><span class="bd-main">客人實付</span><span class="amount-retail" style="font-size:15px">${fmt(o.final_amount)}</span></div>` : ''}
+      </div>
+      ${discountSection}
     </div>
     <div class="section-title" style="margin-top:16px">內部備注</div>
     <div style="display:flex;gap:8px;align-items:flex-start">

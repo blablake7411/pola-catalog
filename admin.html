@@ -249,11 +249,18 @@ th.col-check,td.col-check { width:40px; padding-right:0; }
 .info-grid dt { color:#bbb; font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding-top:1px; }
 .info-grid dd { color:var(--t1); }
 .section-title { font-size:10px; color:#ccc; letter-spacing:.07em; text-transform:uppercase; margin:18px 0 10px; padding-bottom:6px; border-bottom:1px solid #eeece8; }
-.breakdown-card { background:#faf9f6; border-radius:8px; padding:14px 16px; margin-top:10px; }
-.breakdown-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; }
-.breakdown-row.total { font-weight:700; border-top:1px solid #e8e5e0; margin-top:6px; padding-top:10px; }
-.breakdown-row .label { color:#777; }
-.breakdown-row .profit { color:#1a6e3e; font-weight:700; }
+.breakdown-card { background:#faf9f6; border-radius:10px; margin-top:10px; overflow:hidden; border:1px solid #e8e5e0; }
+.breakdown-section { padding:10px 16px; border-bottom:1px solid #e8e5e0; }
+.breakdown-section:last-child { border-bottom:none; }
+.breakdown-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:2px 0; }
+.bd-label { color:#888; font-size:12px; }
+.bd-main { font-weight:600; font-size:13px; }
+.amount-retail { font-family:'SF Mono',Menlo,Consolas,monospace; color:#334155; font-weight:600; }
+.amount-income { font-family:'SF Mono',Menlo,Consolas,monospace; color:#1d4ed8; font-weight:700; font-size:15px; }
+.amount-cost { font-family:'SF Mono',Menlo,Consolas,monospace; color:#dc2626; }
+.amount-profit { font-family:'SF Mono',Menlo,Consolas,monospace; color:#16a34a; font-weight:700; font-size:15px; }
+.bds-income { background:#eff6ff; }
+.bds-profit { background:#f0fdf4; }
 
 /* ── Tier progress ── */
 .tier-bar { background:#ece9e3; height:6px; border-radius:3px; overflow:hidden; margin:6px 0 4px; }
