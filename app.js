@@ -560,8 +560,6 @@ function openCheckout() {
   } else {
     document.getElementById('co-buyer-section').style.display = 'none';
     document.getElementById('sameBuyerBtn').style.display = 'none';
-    const liffName = sessionStorage.getItem('liff_name');
-    if (liffName) document.getElementById('co-name').value = liffName;
   }
 }
 
@@ -638,7 +636,6 @@ async function submitOrder() {
     customer_phone: phone,
     customer_address: address || null,
     notes: document.getElementById('co-notes').value.trim() || null,
-    line_user_id: sessionStorage.getItem('liff_userId') || null,
     items: cart.map(i => ({
       product_code: i.code || null,
       product_name: i.name,
